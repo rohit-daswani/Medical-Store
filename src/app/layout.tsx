@@ -19,16 +19,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-[var(--background)]">
           <Sidebar />
-          <main className="flex-1 lg:ml-64">
-            <div className="p-4 lg:p-8">
-              {children}
-            </div>
+          <main className="flex-1 p-6 lg:ml-64 max-w-7xl mx-auto">
+            {children}
           </main>
         </div>
-        <Toaster 
-          position="top-right" 
+        <Toaster
+          position="top-right"
           toastOptions={{
             duration: 4000,
             style: {

@@ -191,27 +191,27 @@ export function TransactionHistory() {
           <CardContent className="p-4">
             <div className="text-center">
               <p className="text-2xl font-bold">{filteredTransactions.length}</p>
-              <p className="text-sm text-gray-600">Total Transactions</p>
+              <p className="text-sm text-[var(--foreground)]/70">Total Transactions</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-[var(--success)]">
                 {filteredTransactions.filter(txn => txn.type === 'sell').length}
               </p>
-              <p className="text-sm text-gray-600">Sales</p>
+              <p className="text-sm text-[var(--foreground)]/70">Sales</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-2xl font-bold text-[var(--brand-blue)]">
                 {filteredTransactions.filter(txn => txn.type === 'purchase').length}
               </p>
-              <p className="text-sm text-gray-600">Purchases</p>
+              <p className="text-sm text-[var(--foreground)]/70">Purchases</p>
             </div>
           </CardContent>
         </Card>
@@ -223,7 +223,7 @@ export function TransactionHistory() {
                   filteredTransactions.reduce((sum, txn) => sum + txn.totalAmount, 0)
                 )}
               </p>
-              <p className="text-sm text-gray-600">Total Value</p>
+              <p className="text-sm text-[var(--foreground)]/70">Total Value</p>
             </div>
           </CardContent>
         </Card>
@@ -239,8 +239,8 @@ export function TransactionHistory() {
         <CardContent>
           {currentTransactions.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">No transactions found</p>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-[var(--foreground)]/70">No transactions found</p>
+              <p className="text-sm text-[var(--foreground)]/60 mt-1">
                 Try adjusting your filters or search terms
               </p>
             </div>
@@ -285,7 +285,7 @@ export function TransactionHistory() {
                               </p>
                             ))}
                             {transaction.items.length > 2 && (
-                              <p className="text-xs text-gray-500">
+                              <p className="text-xs text-[var(--foreground)]/60">
                                 +{transaction.items.length - 2} more
                               </p>
                             )}
@@ -313,7 +313,7 @@ export function TransactionHistory() {
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-[var(--foreground)]/70">
                     Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of{' '}
                     {filteredTransactions.length} transactions
                   </p>

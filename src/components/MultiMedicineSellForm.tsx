@@ -16,17 +16,7 @@ import { Medicine, TransactionItem } from '@/types';
 import { formatCurrency, generateInvoiceNumber, calculateGST } from '@/lib/export-utils';
 import { toast } from 'sonner';
 
-interface SellItem {
-  medicineId: string;
-  medicine?: Medicine;
-  quantity: number;
-  price: number;
-}
-
 export function MultiMedicineSellForm() {
-  const [selectedMedicines, setSelectedMedicines] = useState<SellItem[]>([
-    { medicineId: '', quantity: 1, price: 0 }
-  ]);
   const [scheduleHMedicines, setScheduleHMedicines] = useState<string[]>([]);
   const [showPrescriptionDialog, setShowPrescriptionDialog] = useState(false);
   const [prescriptionFiles, setPrescriptionFiles] = useState<string[]>([]);
@@ -45,9 +35,9 @@ export function MultiMedicineSellForm() {
     handleSubmit,
     formState: { errors },
     setValue,
-    watch,
     reset,
-    control
+    control,
+    watch
   } = form;
 
   const { fields, append, remove } = useFieldArray({
@@ -56,43 +46,27 @@ export function MultiMedicineSellForm() {
   });
 
   const addMedicine = () => {
-    const newItem = { medicineId: '', quantity: 1, price: 0 };
-    setSelectedMedicines([...selectedMedicines, newItem]);
-    append(newItem);
+    append({ medicineId: '', quantity: 1, price: 0 });
   };
 
   const removeMedicine = (index: number) => {
-    if (selectedMedicines.length > 1) {
-      const newMedicines = selectedMedicines.filter((_, i) => i !== index);
-      setSelectedMedicines(newMedicines);
+    if (fields.length > 1) {
       remove(index);
     }
   };
 
   const handleMedicineSelect = (index: number, medicine: Medicine) => {
-    const updatedMedicines = [...selectedMedicines];
-    updatedMedicines[index] = {
-      ...updatedMedicines[index],
-      medicineId: medicine.id,
-      medicine,
-      price: medicine.price
-    };
-    setSelectedMedicines(updatedMedicines);
-
-    // Update form values
     setValue(`items.${index}.medicineId`, medicine.id);
     setValue(`items.${index}.price`, medicine.price);
 
-    // Check if it's a Schedule H medicine
     if (medicine.isScheduleH) {
       setScheduleHMedicines(prev => [...new Set([...prev, medicine.id])]);
     }
   };
 
   const calculateTotal = () => {
-    return selectedMedicines.reduce((total, item) => {
-      return total + (item.quantity * item.price);
-    }, 0);
+    const items = watch('items');
+    return items.reduce((total, item) => total + (item.quantity * item.price), 0);
   };
 
   const calculateGSTAmount = (subtotal: number) => {
@@ -103,11 +77,7 @@ export function MultiMedicineSellForm() {
     try {
       setIsSubmitting(true);
 
-      // Check if any Schedule H medicines are selected and no prescription uploaded
-      const hasScheduleH = selectedMedicines.some(item => 
-        item.medicine?.isScheduleH && scheduleHMedicines.includes(item.medicineId)
-      );
-
+      const hasScheduleH = data.items.some(item => scheduleHMedicines.includes(item.medicineId));
       if (hasScheduleH && prescriptionFiles.length === 0) {
         setShowPrescriptionDialog(true);
         setIsSubmitting(false);
@@ -115,9 +85,10 @@ export function MultiMedicineSellForm() {
       }
 
       // Validate stock availability
-      for (const item of selectedMedicines) {
-        if (item.medicine && item.medicine.stockQuantity < item.quantity) {
-          toast.error(`Insufficient stock for ${item.medicine.name}. Available: ${item.medicine.stockQuantity}`);
+      for (const item of data.items) {
+        const medicine = DataStore.getMedicineById(item.medicineId);
+        if (medicine && medicine.stockQuantity < item.quantity) {
+          toast.error(`Insufficient stock for ${medicine.name}. Available: ${medicine.stockQuantity}`);
           setIsSubmitting(false);
           return;
         }
@@ -127,14 +98,17 @@ export function MultiMedicineSellForm() {
       const gstAmount = calculateGSTAmount(subtotal);
       const totalAmount = subtotal + gstAmount;
 
-      const transactionItems: TransactionItem[] = selectedMedicines.map(item => ({
-        medicineId: item.medicineId,
-        medicineName: item.medicine?.name || '',
-        quantity: item.quantity,
-        price: item.price,
-        batchNo: item.medicine?.batchNo || '',
-        expiryDate: item.medicine?.expiryDate || ''
-      }));
+      const transactionItems: TransactionItem[] = data.items.map(item => {
+        const medicine = DataStore.getMedicineById(item.medicineId);
+        return {
+          medicineId: item.medicineId,
+          medicineName: medicine?.name || '',
+          quantity: item.quantity,
+          price: item.price,
+          batchNo: medicine?.batchNo || '',
+          expiryDate: medicine?.expiryDate || ''
+        };
+      });
 
       const transaction = {
         type: 'sell' as const,
@@ -149,17 +123,12 @@ export function MultiMedicineSellForm() {
         paymentMethod: data.paymentMethod
       };
 
-      // Save transaction
       DataStore.addTransaction(transaction);
 
       toast.success('Sale completed successfully!');
-      
-      // Reset form
       reset();
-      setSelectedMedicines([{ medicineId: '', quantity: 1, price: 0 }]);
       setScheduleHMedicines([]);
       setPrescriptionFiles([]);
-
     } catch (error) {
       console.error('Error processing sale:', error);
       toast.error('Failed to process sale. Please try again.');
@@ -171,13 +140,11 @@ export function MultiMedicineSellForm() {
   const handlePrescriptionUpload = (files: string[]) => {
     setPrescriptionFiles(files);
     setShowPrescriptionDialog(false);
-    // Continue with the sale
     handleSubmit(onSubmit)();
   };
 
   const handleSkipPrescription = () => {
     setShowPrescriptionDialog(false);
-    // Continue with the sale without prescription
     handleSubmit(onSubmit)();
   };
 
@@ -212,13 +179,13 @@ export function MultiMedicineSellForm() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Select Medicines</h3>
-            <Button type="button" onClick={addMedicine} variant="outline">
+            <Button type="button" onClick={addMedicine} variant="outline" size="sm">
               Add Medicine
             </Button>
           </div>
 
-          {selectedMedicines.map((item, index) => (
-            <Card key={index} className="p-4">
+          {fields.map((field, index) => (
+            <Card key={field.id} className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div className="md:col-span-2">
                   <Label>Medicine</Label>
@@ -240,13 +207,6 @@ export function MultiMedicineSellForm() {
                     type="number"
                     min="1"
                     {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                    onChange={(e) => {
-                      const quantity = parseInt(e.target.value) || 1;
-                      const updatedMedicines = [...selectedMedicines];
-                      updatedMedicines[index].quantity = quantity;
-                      setSelectedMedicines(updatedMedicines);
-                      setValue(`items.${index}.quantity`, quantity);
-                    }}
                   />
                   {errors.items?.[index]?.quantity && (
                     <p className="text-sm text-red-600 mt-1">
@@ -257,12 +217,12 @@ export function MultiMedicineSellForm() {
 
                 <div className="flex items-end space-x-2">
                   <div className="flex-1">
-                    <Label>Price: {formatCurrency(item.price)}</Label>
+                    <Label>Price: {formatCurrency(watch(`items.${index}.price`))}</Label>
                     <p className="text-sm text-gray-600">
-                      Total: {formatCurrency(item.quantity * item.price)}
+                      Total: {formatCurrency(watch(`items.${index}.quantity`) * watch(`items.${index}.price`))}
                     </p>
                   </div>
-                  {selectedMedicines.length > 1 && (
+                  {fields.length > 1 && (
                     <Button
                       type="button"
                       variant="outline"
@@ -277,7 +237,7 @@ export function MultiMedicineSellForm() {
               </div>
 
               {/* Schedule H Warning */}
-              {item.medicine?.isScheduleH && (
+              {scheduleHMedicines.includes(watch(`items.${index}.medicineId`)) && (
                 <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                   <div className="flex items-center space-x-2">
                     <span className="text-orange-600">⚠️</span>
@@ -292,19 +252,27 @@ export function MultiMedicineSellForm() {
               )}
 
               {/* Stock Warning */}
-              {item.medicine && item.medicine.stockQuantity < item.quantity && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-red-600">❌</span>
-                    <div>
-                      <p className="text-sm font-medium text-red-800">Insufficient Stock</p>
-                      <p className="text-xs text-red-600">
-                        Available: {item.medicine.stockQuantity}, Required: {item.quantity}
-                      </p>
+              {(() => {
+                const medicineId = watch(`items.${index}.medicineId`);
+                const quantity = watch(`items.${index}.quantity`);
+                const medicine = DataStore.getMedicineById(medicineId);
+                if (medicine && medicine.stockQuantity < quantity) {
+                  return (
+                    <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-red-600">❌</span>
+                        <div>
+                          <p className="text-sm font-medium text-red-800">Insufficient Stock</p>
+                          <p className="text-xs text-red-600">
+                            Available: {medicine.stockQuantity}, Required: {quantity}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  );
+                }
+                return null;
+              })()}
             </Card>
           ))}
         </div>
@@ -365,7 +333,7 @@ export function MultiMedicineSellForm() {
         onUpload={handlePrescriptionUpload}
         onSkip={handleSkipPrescription}
         scheduleHMedicines={scheduleHMedicines.map(id => 
-          selectedMedicines.find(item => item.medicineId === id)?.medicine?.name || ''
+          DataStore.getMedicineById(id)?.name || ''
         )}
       />
     </div>

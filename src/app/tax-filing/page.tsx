@@ -69,8 +69,8 @@ export default function TaxFilingPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Generating tax report...</p>
+          <div className="w-8 h-8 border-4 border-[var(--brand-blue)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[var(--foreground)]/70">Generating tax report...</p>
         </div>
       </div>
     );
@@ -85,8 +85,8 @@ export default function TaxFilingPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tax Filing & CA Reports</h1>
-          <p className="text-gray-600 mt-1">Generate comprehensive tax reports for CA and IT filing</p>
+          <h1 className="text-2xl font-bold text-[var(--brand-blue)]">Tax Filing & CA Reports</h1>
+          <p className="text-[var(--foreground)]/70 mt-1">Generate comprehensive tax reports for CA and IT filing</p>
         </div>
         <div className="flex space-x-3 mt-4 sm:mt-0">
           <Button onClick={handleExportSummary} variant="outline">
@@ -140,7 +140,7 @@ export default function TaxFilingPage() {
             <span className="text-2xl">💰</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(taxData.totalSales)}</div>
+            <div className="text-2xl font-bold text-[var(--success)]">{formatCurrency(taxData.totalSales)}</div>
             <p className="text-xs text-muted-foreground">
               {salesTransactions.length} transactions
             </p>
@@ -153,7 +153,7 @@ export default function TaxFilingPage() {
             <span className="text-2xl">📦</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{formatCurrency(taxData.totalPurchases)}</div>
+            <div className="text-2xl font-bold text-[var(--brand-blue)]">{formatCurrency(taxData.totalPurchases)}</div>
             <p className="text-xs text-muted-foreground">
               {purchaseTransactions.length} transactions
             </p>
@@ -166,7 +166,7 @@ export default function TaxFilingPage() {
             <span className="text-2xl">📋</span>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{formatCurrency(taxData.gstCollected)}</div>
+            <div className="text-2xl font-bold text-[var(--warning)]">{formatCurrency(taxData.gstCollected)}</div>
             <p className="text-xs text-muted-foreground">
               Output GST on sales
             </p>
@@ -179,7 +179,7 @@ export default function TaxFilingPage() {
             <span className="text-2xl">🧾</span>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${netGSTLiability >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className={`text-2xl font-bold ${netGSTLiability >= 0 ? 'text-[var(--error)]' : 'text-[var(--success)]'}`}>
               {formatCurrency(Math.abs(netGSTLiability))}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -210,15 +210,15 @@ export default function TaxFilingPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span>Total Sales Revenue:</span>
-                      <span className="font-medium text-green-600">{formatCurrency(taxData.totalSales)}</span>
+                      <span className="font-medium text-[var(--success)]">{formatCurrency(taxData.totalSales)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Total Purchase Cost:</span>
-                      <span className="font-medium text-blue-600">{formatCurrency(taxData.totalPurchases)}</span>
+                      <span className="font-medium text-[var(--brand-blue)]">{formatCurrency(taxData.totalPurchases)}</span>
                     </div>
                     <div className="flex justify-between border-t pt-2">
                       <span className="font-semibold">Gross Profit:</span>
-                      <span className={`font-bold ${taxData.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className={`font-bold ${taxData.netProfit >= 0 ? 'text-[var(--success)]' : 'text-[var(--error)]'}`}>
                         {formatCurrency(taxData.netProfit)}
                       </span>
                     </div>
@@ -236,15 +236,15 @@ export default function TaxFilingPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span>GST Collected (Output):</span>
-                      <span className="font-medium text-orange-600">{formatCurrency(taxData.gstCollected)}</span>
+                      <span className="font-medium text-[var(--warning)]">{formatCurrency(taxData.gstCollected)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>GST Paid (Input):</span>
-                      <span className="font-medium text-blue-600">{formatCurrency(taxData.gstPaid)}</span>
+                      <span className="font-medium text-[var(--brand-blue)]">{formatCurrency(taxData.gstPaid)}</span>
                     </div>
                     <div className="flex justify-between border-t pt-2">
                       <span className="font-semibold">Net GST Liability:</span>
-                      <span className={`font-bold ${netGSTLiability >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className={`font-bold ${netGSTLiability >= 0 ? 'text-[var(--error)]' : 'text-[var(--success)]'}`}>
                         {formatCurrency(Math.abs(netGSTLiability))} {netGSTLiability >= 0 ? '(Payable)' : '(Refund)'}
                       </span>
                     </div>
@@ -297,7 +297,7 @@ export default function TaxFilingPage() {
                                 </p>
                               ))}
                               {transaction.items.length > 2 && (
-                                <p className="text-xs text-gray-500">+{transaction.items.length - 2} more</p>
+                                <p className="text-xs text-[var(--foreground)]/60">+{transaction.items.length - 2} more</p>
                               )}
                             </div>
                           </TableCell>
@@ -353,7 +353,7 @@ export default function TaxFilingPage() {
                                 </p>
                               ))}
                               {transaction.items.length > 2 && (
-                                <p className="text-xs text-gray-500">+{transaction.items.length - 2} more</p>
+                                <p className="text-xs text-[var(--foreground)]/60">+{transaction.items.length - 2} more</p>
                               )}
                             </div>
                           </TableCell>
@@ -383,17 +383,17 @@ export default function TaxFilingPage() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Monthly GST Breakdown</h3>
                   <div className="space-y-3">
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <h4 className="font-medium text-green-800">Output GST (Sales)</h4>
-                      <p className="text-2xl font-bold text-green-600">{formatCurrency(taxData.gstCollected)}</p>
-                      <p className="text-sm text-green-600">CGST: {formatCurrency(taxData.gstCollected / 2)}</p>
-                      <p className="text-sm text-green-600">SGST: {formatCurrency(taxData.gstCollected / 2)}</p>
+                    <div className="p-4 bg-[var(--success)]/10 border border-[var(--success)]/20 rounded-lg">
+                      <h4 className="font-medium text-[var(--success)]">Output GST (Sales)</h4>
+                      <p className="text-2xl font-bold text-[var(--success)]">{formatCurrency(taxData.gstCollected)}</p>
+                      <p className="text-sm text-[var(--success)]/80">CGST: {formatCurrency(taxData.gstCollected / 2)}</p>
+                      <p className="text-sm text-[var(--success)]/80">SGST: {formatCurrency(taxData.gstCollected / 2)}</p>
                     </div>
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <h4 className="font-medium text-blue-800">Input GST (Purchases)</h4>
-                      <p className="text-2xl font-bold text-blue-600">{formatCurrency(taxData.gstPaid)}</p>
-                      <p className="text-sm text-blue-600">CGST: {formatCurrency(taxData.gstPaid / 2)}</p>
-                      <p className="text-sm text-blue-600">SGST: {formatCurrency(taxData.gstPaid / 2)}</p>
+                    <div className="p-4 bg-[var(--brand-blue)]/10 border border-[var(--brand-blue)]/20 rounded-lg">
+                      <h4 className="font-medium text-[var(--brand-blue)]">Input GST (Purchases)</h4>
+                      <p className="text-2xl font-bold text-[var(--brand-blue)]">{formatCurrency(taxData.gstPaid)}</p>
+                      <p className="text-sm text-[var(--brand-blue)]/80">CGST: {formatCurrency(taxData.gstPaid / 2)}</p>
+                      <p className="text-sm text-[var(--brand-blue)]/80">SGST: {formatCurrency(taxData.gstPaid / 2)}</p>
                     </div>
                   </div>
                 </div>
@@ -401,21 +401,21 @@ export default function TaxFilingPage() {
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Compliance Status</h3>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-[var(--panel-bg)] rounded-lg">
                       <span>GST Registration Required:</span>
                       <Badge variant={taxData.totalSales > 2000000 ? "destructive" : "default"}>
                         {taxData.totalSales > 2000000 ? "Yes" : "No"}
                       </Badge>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-[var(--panel-bg)] rounded-lg">
                       <span>Annual Turnover:</span>
                       <span className="font-medium">{formatCurrency(taxData.totalSales)}</span>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-[var(--panel-bg)] rounded-lg">
                       <span>Quarterly Return Filing:</span>
                       <Badge variant="outline">Required</Badge>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between p-3 bg-[var(--panel-bg)] rounded-lg">
                       <span>TDS Applicable:</span>
                       <Badge variant={taxData.totalPurchases > 5000000 ? "destructive" : "default"}>
                         {taxData.totalPurchases > 5000000 ? "Yes" : "No"}
@@ -425,9 +425,9 @@ export default function TaxFilingPage() {
                 </div>
               </div>
 
-              <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h4 className="font-medium text-yellow-800 mb-2">Important Notes for CA:</h4>
-                <ul className="text-sm text-yellow-700 space-y-1">
+              <div className="mt-8 p-4 bg-[var(--warning)]/10 border border-[var(--warning)]/20 rounded-lg">
+                <h4 className="font-medium text-[var(--warning)] mb-2">Important Notes for CA:</h4>
+                <ul className="text-sm text-[var(--warning)]/90 space-y-1">
                   <li>• All transactions are recorded with proper GST calculations</li>
                   <li>• Schedule H drug sales are tracked separately for compliance</li>
                   <li>• Prescription records are maintained for audit purposes</li>
