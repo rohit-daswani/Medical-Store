@@ -38,6 +38,7 @@ export function Dashboard() {
     
     let formatKey: (dateStr: string) => string;
     let displayFormat: (key: string) => string;
+    let getDateForRange: (key: string) => Date;
     
     switch (timeRange) {
       case 'day':
@@ -49,17 +50,21 @@ export function Dashboard() {
           const date = new Date(key);
           return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         };
+        getDateForRange = (key: string) => new Date(key);
         break;
       case 'week':
         formatKey = (dateStr: string) => {
           const date = new Date(dateStr);
           const startOfWeek = new Date(date);
           startOfWeek.setDate(date.getDate() - date.getDay());
-          return `${startOfWeek.getFullYear()}-W${Math.ceil(startOfWeek.getDate() / 7)}`;
+          return startOfWeek.toISOString().split('T')[0]; // Return YYYY-MM-DD format
         };
         displayFormat = (key: string) => {
-          return `Week ${key.split('-W')[1]}`;
+          const date = new Date(key);
+          const weekNumber = Math.ceil(date.getDate() / 7);
+          return `Week ${weekNumber}`;
         };
+        getDateForRange = (key: string) => new Date(key);
         break;
       default: // month
         formatKey = (dateStr: string) => {
@@ -70,6 +75,7 @@ export function Dashboard() {
           const date = new Date(key + '-01');
           return date.toLocaleString('default', { month: 'short' });
         };
+        getDateForRange = (key: string) => new Date(key + '-01');
     }
 
     const transactionsByPeriod: Record<string, { totalRevenue: number; totalSales: number }> = {};
@@ -100,11 +106,12 @@ export function Dashboard() {
     const chartArray = Object.entries(transactionsByPeriod)
       .map(([period, amounts]) => ({
         period: displayFormat(period),
-        totalRevenue: Math.round(amounts.totalRevenue / 100), // Scale down for better visualization
-        totalSales: Math.round(amounts.totalSales / 100),
-        originalPeriod: period
+        totalRevenue: amounts.totalRevenue, // Keep actual amounts
+        totalSales: amounts.totalSales,
+        originalPeriod: period,
+        sortDate: getDateForRange(period)
       }))
-      .sort((a, b) => a.originalPeriod.localeCompare(b.originalPeriod))
+      .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
       .slice(-12); // Show last 12 periods
 
     return chartArray;
@@ -113,11 +120,10 @@ export function Dashboard() {
   const updateDateRange = (data: any[], timeRange: TimeRange) => {
     if (data.length === 0) return '';
     
-    const firstPeriod = data[0].originalPeriod;
-    const lastPeriod = data[data.length - 1].originalPeriod;
+    const firstDate = data[0].sortDate;
+    const lastDate = data[data.length - 1].sortDate;
     
-    const formatDateRange = (period: string) => {
-      const date = new Date(period + (timeRange === 'month' ? '-01' : ''));
+    const formatDateRange = (date: Date) => {
       return date.toLocaleDateString('en-US', { 
         day: '2-digit', 
         month: '2-digit', 
@@ -125,7 +131,7 @@ export function Dashboard() {
       });
     };
     
-    return `${formatDateRange(firstPeriod)} - ${formatDateRange(lastPeriod)}`;
+    return `${formatDateRange(firstDate)} - ${formatDateRange(lastDate)}`;
   };
 
   useEffect(() => {
@@ -311,10 +317,11 @@ export function Dashboard() {
                     tick={{ fontSize: 12, fill: '#64748b' }}
                     axisLine={false}
                     tickLine={false}
+                    tickFormatter={(value) => formatCurrency(value)}
                   />
                   <Tooltip 
                     formatter={(value: number, name: string) => [
-                      value, 
+                      formatCurrency(value), 
                       name === 'totalRevenue' ? 'Total Revenue' : 'Total Sales'
                     ]}
                     labelStyle={{ color: '#1e293b' }}
