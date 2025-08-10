@@ -21,18 +21,118 @@ import {
   Legend,
 } from 'recharts';
 
+type TimeRange = 'day' | 'week' | 'month';
+
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [expiringMedicines, setExpiringMedicines] = useState<ExpiringMedicine[]>([]);
   const [lowStockMedicines, setLowStockMedicines] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('month');
+  const [dateRange, setDateRange] = useState<string>('');
+
+  const processChartData = (timeRange: TimeRange) => {
+    const salesTransactions = DataStore.getTransactions('sell');
+    const purchaseTransactions = DataStore.getTransactions('purchase');
+    
+    let formatKey: (dateStr: string) => string;
+    let displayFormat: (key: string) => string;
+    
+    switch (timeRange) {
+      case 'day':
+        formatKey = (dateStr: string) => {
+          const date = new Date(dateStr);
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        };
+        displayFormat = (key: string) => {
+          const date = new Date(key);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        };
+        break;
+      case 'week':
+        formatKey = (dateStr: string) => {
+          const date = new Date(dateStr);
+          const startOfWeek = new Date(date);
+          startOfWeek.setDate(date.getDate() - date.getDay());
+          return `${startOfWeek.getFullYear()}-W${Math.ceil(startOfWeek.getDate() / 7)}`;
+        };
+        displayFormat = (key: string) => {
+          return `Week ${key.split('-W')[1]}`;
+        };
+        break;
+      default: // month
+        formatKey = (dateStr: string) => {
+          const date = new Date(dateStr);
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        };
+        displayFormat = (key: string) => {
+          const date = new Date(key + '-01');
+          return date.toLocaleString('default', { month: 'short' });
+        };
+    }
+
+    const transactionsByPeriod: Record<string, { totalRevenue: number; totalSales: number }> = {};
+    
+    // Process sales transactions (Total Sales)
+    salesTransactions.forEach(txn => {
+      const key = formatKey(txn.date);
+      if (!transactionsByPeriod[key]) {
+        transactionsByPeriod[key] = { totalRevenue: 0, totalSales: 0 };
+      }
+      transactionsByPeriod[key].totalSales += txn.totalAmount;
+    });
+    
+    // Process purchase transactions (Total Revenue - combining both for revenue calculation)
+    purchaseTransactions.forEach(txn => {
+      const key = formatKey(txn.date);
+      if (!transactionsByPeriod[key]) {
+        transactionsByPeriod[key] = { totalRevenue: 0, totalSales: 0 };
+      }
+      transactionsByPeriod[key].totalRevenue += txn.totalAmount;
+    });
+
+    // Add sales to revenue for total revenue calculation
+    Object.keys(transactionsByPeriod).forEach(key => {
+      transactionsByPeriod[key].totalRevenue += transactionsByPeriod[key].totalSales;
+    });
+
+    const chartArray = Object.entries(transactionsByPeriod)
+      .map(([period, amounts]) => ({
+        period: displayFormat(period),
+        totalRevenue: Math.round(amounts.totalRevenue / 100), // Scale down for better visualization
+        totalSales: Math.round(amounts.totalSales / 100),
+        originalPeriod: period
+      }))
+      .sort((a, b) => a.originalPeriod.localeCompare(b.originalPeriod))
+      .slice(-12); // Show last 12 periods
+
+    return chartArray;
+  };
+
+  const updateDateRange = (data: any[], timeRange: TimeRange) => {
+    if (data.length === 0) return '';
+    
+    const firstPeriod = data[0].originalPeriod;
+    const lastPeriod = data[data.length - 1].originalPeriod;
+    
+    const formatDateRange = (period: string) => {
+      const date = new Date(period + (timeRange === 'month' ? '-01' : ''));
+      return date.toLocaleDateString('en-US', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+    };
+    
+    return `${formatDateRange(firstPeriod)} - ${formatDateRange(lastPeriod)}`;
+  };
 
   useEffect(() => {
     // Load dashboard data
     const dashboardStats = DataStore.getDashboardStats();
-    const transactions = DataStore.getTransactions().slice(-5).reverse(); // Last 5 transactions
-    const expiring = DataStore.getExpiringMedicines(15); // Expiring in 15 days
+    const transactions = DataStore.getTransactions().slice(-5).reverse();
+    const expiring = DataStore.getExpiringMedicines(15);
     const inventory = DataStore.getInventory();
     const lowStock = inventory.filter(item => item.isLowStock);
 
@@ -41,50 +141,10 @@ export function Dashboard() {
     setExpiringMedicines(expiring);
     setLowStockMedicines(lowStock);
 
-    // Prepare combined sales and purchase data for graph (group by month)
-    const formatYearMonth = (dateStr: string) => {
-      const date = new Date(dateStr);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      return `${year}-${month}`;
-    };
-
-    const transactionsByMonth: Record<string, { sales: number; purchases: number }> = {};
-    
-    // Aggregate sales transactions
-    const salesTransactions = DataStore.getTransactions('sell');
-    salesTransactions.forEach(txn => {
-      const key = formatYearMonth(txn.date);
-      if (!transactionsByMonth[key]) {
-        transactionsByMonth[key] = { sales: 0, purchases: 0 };
-      }
-      transactionsByMonth[key].sales += txn.totalAmount;
-    });
-    
-    // Aggregate purchase transactions
-    const purchaseTransactions = DataStore.getTransactions('purchase');
-    purchaseTransactions.forEach(txn => {
-      const key = formatYearMonth(txn.date);
-      if (!transactionsByMonth[key]) {
-        transactionsByMonth[key] = { sales: 0, purchases: 0 };
-      }
-      transactionsByMonth[key].purchases += txn.totalAmount;
-    });
-
-    // Convert to array and format for display
-    const mergedData = Object.entries(transactionsByMonth)
-      .map(([yearMonth, amounts]) => {
-        const date = new Date(yearMonth + '-01');
-        const displayMonth = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-        return { month: displayMonth, ...amounts };
-      })
-      .sort((a, b) => {
-        const dateA = new Date(a.month + ' 01');
-        const dateB = new Date(b.month + ' 01');
-        return dateA.getTime() - dateB.getTime();
-      });
-    
-    setChartData(mergedData);
+    // Process chart data based on selected time range
+    const processedData = processChartData(selectedTimeRange);
+    setChartData(processedData);
+    setDateRange(updateDateRange(processedData, selectedTimeRange));
 
     // Show notifications for critical items
     if (lowStock.length > 0) {
@@ -94,7 +154,11 @@ export function Dashboard() {
     if (expiring.length > 0) {
       toast.warning(`${expiring.length} medicines are expiring within 15 days!`);
     }
-  }, []);
+  }, [selectedTimeRange]);
+
+  const handleTimeRangeChange = (range: TimeRange) => {
+    setSelectedTimeRange(range);
+  };
 
   if (!stats) {
     return (
@@ -180,31 +244,78 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* Sales & Purchase Comparison Chart */}
+      {/* Enhanced Sales & Revenue Chart */}
       <div className="mt-6">
         <Card>
-          <CardHeader>
-            <CardTitle>Sales & Purchase Comparison Chart</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
+            {/* Custom Header with Legends and Time Range Selector */}
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-6 space-y-4 lg:space-y-0">
+              {/* Custom Legends */}
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-[#4F46E5]"></div>
+                    <span className="text-sm font-medium text-[#4F46E5]">Total Revenue</span>
+                  </div>
+                  <div className="text-xs text-gray-500">{dateRange}</div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-[#06B6D4]"></div>
+                    <span className="text-sm font-medium text-[#06B6D4]">Total Sales</span>
+                  </div>
+                  <div className="text-xs text-gray-500">{dateRange}</div>
+                </div>
+              </div>
+
+              {/* Time Range Selector */}
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                {(['day', 'week', 'month'] as TimeRange[]).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => handleTimeRangeChange(range)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      selectedTimeRange === range
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {range.charAt(0).toUpperCase() + range.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Chart */}
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <ResponsiveContainer width="100%" height={400}>
+                <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="totalRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#4F46E5" stopOpacity={0.1}/>
+                    </linearGradient>
+                    <linearGradient id="totalSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#06B6D4" stopOpacity={0.1}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis 
-                    dataKey="month" 
-                    tick={{ fontSize: 12 }}
-                    stroke="#64748b"
+                    dataKey="period" 
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
                   />
                   <YAxis 
-                    tick={{ fontSize: 12 }}
-                    stroke="#64748b"
-                    tickFormatter={(value) => formatCurrency(value)}
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
                   />
                   <Tooltip 
                     formatter={(value: number, name: string) => [
-                      formatCurrency(value), 
-                      name.charAt(0).toUpperCase() + name.slice(1)
+                      value, 
+                      name === 'totalRevenue' ? 'Total Revenue' : 'Total Sales'
                     ]}
                     labelStyle={{ color: '#1e293b' }}
                     contentStyle={{ 
@@ -214,22 +325,23 @@ export function Dashboard() {
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                     }}
                   />
-                  <Legend />
                   <Area 
                     type="monotone" 
-                    dataKey="sales" 
-                    stroke="#3b82f6" 
-                    fill="#dbeafe" 
+                    dataKey="totalRevenue" 
+                    stroke="#4F46E5" 
+                    fill="url(#totalRevenue)"
                     strokeWidth={2}
-                    name="Sales"
+                    dot={{ fill: '#4F46E5', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: '#4F46E5' }}
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="purchases" 
-                    stroke="#10b981" 
-                    fill="#d1fae5" 
+                    dataKey="totalSales" 
+                    stroke="#06B6D4" 
+                    fill="url(#totalSales)"
                     strokeWidth={2}
-                    name="Purchases"
+                    dot={{ fill: '#06B6D4', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: '#06B6D4' }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -239,7 +351,7 @@ export function Dashboard() {
                   No transactional data available to display.
                 </p>
                 <p className="text-[var(--foreground)]/50 text-xs mt-1">
-                  Sales and purchase data will appear here once transactions are recorded.
+                  Revenue and sales data will appear here once transactions are recorded.
                 </p>
               </div>
             )}
