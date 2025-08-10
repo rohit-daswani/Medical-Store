@@ -73,14 +73,14 @@ function SidebarContent() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full flex-col" style={{ backgroundColor: '#141414' }}>
+    <div className="flex h-full flex-col" style={{ backgroundColor: 'white' }}>
       {/* Logo */}
-      <div className="flex h-16 items-center px-6 border-b" style={{ borderColor: '#333333' }}>
+      <div className="flex h-16 items-center px-6 border-b" style={{ borderColor: '#e4e7ec' }}>
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-gradient-to-r from-[var(--brand-deep-blue)] to-[var(--brand-blue)] rounded-lg flex items-center justify-center text-white font-bold">
             M
           </div>
-          <span className="text-xl font-bold" style={{ color: 'white' }}>MediStore Pro</span>
+          <span className="text-xl font-bold" style={{ color: 'black' }}>MediStore Pro</span>
         </div>
       </div>
 
@@ -94,23 +94,42 @@ function SidebarContent() {
               href={item.href}
               className={cn(
                 'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors',
-                'text-white hover:text-white'
+                isActive 
+                  ? 'text-[#465fff]' 
+                  : 'text-black hover:text-black'
               )}
               style={{
-                backgroundColor: isActive ? 'oklch(37.3% .034 259.733)' : 'transparent',
+                backgroundColor: isActive ? '#ecf3ff' : 'transparent',
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'oklch(37.3% .034 259.733)';
+                  e.currentTarget.style.backgroundColor = '#e4e7ec';
+                  // Make icon dark on hover
+                  const icon = e.currentTarget.querySelector('span');
+                  if (icon) {
+                    icon.style.color = 'black';
+                  }
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.backgroundColor = 'transparent';
+                  // Reset icon color
+                  const icon = e.currentTarget.querySelector('span');
+                  if (icon) {
+                    icon.style.color = 'black';
+                  }
                 }
               }}
             >
-              <span className="mr-3 text-lg">{item.icon}</span>
+              <span 
+                className="mr-3 text-lg" 
+                style={{ 
+                  color: isActive ? '#465fff' : 'black' 
+                }}
+              >
+                {item.icon}
+              </span>
               {item.name}
             </Link>
           );
@@ -118,8 +137,8 @@ function SidebarContent() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t" style={{ borderColor: '#333333' }}>
-        <div className="text-xs text-center" style={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+      <div className="p-4 border-t" style={{ borderColor: '#e4e7ec' }}>
+        <div className="text-xs text-center" style={{ color: 'rgba(0, 0, 0, 0.7)' }}>
           <p>MediStore Pro v1.0</p>
           <p className="mt-1">Medical Store Management</p>
         </div>
@@ -145,7 +164,7 @@ export function Sidebar() {
               <span className="text-lg">☰</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64" style={{ backgroundColor: '#141414' }}>
+          <SheetContent side="left" className="p-0 w-64" style={{ backgroundColor: 'white' }}>
             <SidebarContent />
           </SheetContent>
         </Sheet>
