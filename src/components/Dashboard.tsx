@@ -48,7 +48,7 @@ export function Dashboard() {
         };
         displayFormat = (key: string) => {
           const date = new Date(key);
-          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
         };
         getDateForRange = (key: string) => new Date(key);
         break;
@@ -62,7 +62,7 @@ export function Dashboard() {
         displayFormat = (key: string) => {
           const date = new Date(key);
           const weekNumber = Math.ceil(date.getDate() / 7);
-          return `Week ${weekNumber}`;
+          return `Week ${weekNumber} '${date.getFullYear().toString().slice(-2)}`;
         };
         getDateForRange = (key: string) => new Date(key);
         break;
@@ -73,41 +73,42 @@ export function Dashboard() {
         };
         displayFormat = (key: string) => {
           const date = new Date(key + '-01');
-          return date.toLocaleString('default', { month: 'short' });
+          return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
         };
         getDateForRange = (key: string) => new Date(key + '-01');
     }
 
-    const transactionsByPeriod: Record<string, { totalRevenue: number; totalSales: number }> = {};
+    const transactionsByPeriod: Record<string, { totalRevenue: number; totalSales: number; purchaseCost: number }> = {};
     
-    // Process sales transactions (Total Sales)
+    // Process sales transactions
     salesTransactions.forEach(txn => {
       const key = formatKey(txn.date);
       if (!transactionsByPeriod[key]) {
-        transactionsByPeriod[key] = { totalRevenue: 0, totalSales: 0 };
+        transactionsByPeriod[key] = { totalRevenue: 0, totalSales: 0, purchaseCost: 0 };
       }
       transactionsByPeriod[key].totalSales += txn.totalAmount;
     });
     
-    // Process purchase transactions (Total Revenue - combining both for revenue calculation)
+    // Process purchase transactions
     purchaseTransactions.forEach(txn => {
       const key = formatKey(txn.date);
       if (!transactionsByPeriod[key]) {
-        transactionsByPeriod[key] = { totalRevenue: 0, totalSales: 0 };
+        transactionsByPeriod[key] = { totalRevenue: 0, totalSales: 0, purchaseCost: 0 };
       }
-      transactionsByPeriod[key].totalRevenue += txn.totalAmount;
+      transactionsByPeriod[key].purchaseCost += txn.totalAmount;
     });
 
-    // Add sales to revenue for total revenue calculation
+    // Calculate total revenue as sales - purchase cost
     Object.keys(transactionsByPeriod).forEach(key => {
-      transactionsByPeriod[key].totalRevenue += transactionsByPeriod[key].totalSales;
+      transactionsByPeriod[key].totalRevenue = transactionsByPeriod[key].totalSales - transactionsByPeriod[key].purchaseCost;
     });
 
     const chartArray = Object.entries(transactionsByPeriod)
       .map(([period, amounts]) => ({
         period: displayFormat(period),
-        totalRevenue: amounts.totalRevenue, // Keep actual amounts
+        totalRevenue: amounts.totalRevenue, // Sales - Purchase Cost
         totalSales: amounts.totalSales,
+        purchaseCost: amounts.purchaseCost, // New parameter
         originalPeriod: period,
         sortDate: getDateForRange(period)
       }))
@@ -272,6 +273,13 @@ export function Dashboard() {
                   </div>
                   <div className="text-xs text-gray-500">{dateRange}</div>
                 </div>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-[#EF4444]"></div>
+                    <span className="text-sm font-medium text-[#EF4444]">Purchase Cost</span>
+                  </div>
+                  <div className="text-xs text-gray-500">{dateRange}</div>
+                </div>
               </div>
 
               {/* Time Range Selector */}
@@ -305,6 +313,10 @@ export function Dashboard() {
                       <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.3}/>
                       <stop offset="95%" stopColor="#06B6D4" stopOpacity={0.1}/>
                     </linearGradient>
+                    <linearGradient id="purchaseCost" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0.1}/>
+                    </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis 
@@ -323,7 +335,8 @@ export function Dashboard() {
                   <Tooltip 
                     formatter={(value: number, name: string) => [
                       formatCurrency(value), 
-                      name === 'totalRevenue' ? 'Total Revenue' : 'Total Sales'
+                      name === 'totalRevenue' ? 'Total Revenue' : 
+                      name === 'totalSales' ? 'Total Sales' : 'Purchase Cost'
                     ]}
                     labelStyle={{ color: '#1e293b' }}
                     contentStyle={{ 
@@ -350,6 +363,15 @@ export function Dashboard() {
                     strokeWidth={2}
                     dot={{ fill: '#06B6D4', strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6, fill: '#06B6D4' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="purchaseCost" 
+                    stroke="#EF4444" 
+                    fill="url(#purchaseCost)"
+                    strokeWidth={2}
+                    dot={{ fill: '#EF4444', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, fill: '#EF4444' }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
