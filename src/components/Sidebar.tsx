@@ -103,7 +103,7 @@ function SidebarContent() {
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.backgroundColor = '#e4e7ec';
+                  e.currentTarget.style.backgroundColor = '#f2f4f7';
                   // Make icon dark on hover
                   const icon = e.currentTarget.querySelector('span');
                   if (icon) {
