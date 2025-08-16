@@ -5,11 +5,21 @@ export interface Medicine {
   batchNo: string;
   supplier: string;
   isScheduleH: boolean;
-  price: number;
+  price: number; // Purchase price
+  mrp: number; // Maximum Retail Price
   stockQuantity: number;
   minStockLevel: number;
   category: string;
   manufacturer: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  address: string;
+  contactNumber: string;
+  gstinNumber?: string;
+  createdAt: string;
 }
 
 export interface TransactionItem {
@@ -33,6 +43,9 @@ export interface Transaction {
   gstAmount: number;
   invoiceNumber: string;
   paymentMethod: 'cash' | 'card' | 'upi';
+  supplierName?: string;
+  supplierContact?: string;
+  supplierGstin?: string;
 }
 
 export interface InventoryItem {
@@ -41,6 +54,8 @@ export interface InventoryItem {
   quantity: number;
   isLowStock: boolean;
   daysToExpiry: number;
+  purchasePrice: number;
+  mrp: number;
 }
 
 export interface TaxData {

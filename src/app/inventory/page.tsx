@@ -9,10 +9,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DataStore } from '@/lib/mock-data';
 import { InventoryItem } from '@/types';
 import { formatCurrency, formatDate, exportInventoryReport } from '@/lib/export-utils';
 import { toast } from 'sonner';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function InventoryPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -24,10 +31,19 @@ export default function InventoryPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(15);
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const inventoryData = DataStore.getInventory();
     setInventory(inventoryData);
+    
+    // Check for filter parameter from URL
+    const filterParam = searchParams.get('filter');
+    if (filterParam === 'low-stock') {
+      setFilters(prev => ({ ...prev, stockStatus: 'low' }));
+    }
+    
     setFilteredInventory(inventoryData);
 
     // Show notifications for low stock items
@@ -35,7 +51,7 @@ export default function InventoryPage() {
     if (lowStockItems.length > 0) {
       toast.warning(`${lowStockItems.length} medicines are running low on stock!`);
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     let filtered = [...inventory];
@@ -111,6 +127,27 @@ export default function InventoryPage() {
     }
   };
 
+  const handleAddNewMedicine = () => {
+    router.push('/transactions/purchase');
+  };
+
+  const handleUpdateStock = (medicineId: string) => {
+    // In a real app, this would open a modal or navigate to an update page
+    toast.info('Stock update functionality would be implemented here');
+  };
+
+  const handleEditMedicine = (medicineId: string) => {
+    // In a real app, this would open an edit form
+    toast.info('Medicine edit functionality would be implemented here');
+  };
+
+  const handleDeleteMedicine = (medicineId: string) => {
+    if (confirm('Are you sure you want to delete this medicine from inventory?')) {
+      // In a real app, this would delete the medicine
+      toast.success('Medicine deleted from inventory');
+    }
+  };
+
   // Get unique categories for filter
   const categories = [...new Set(inventory.map(item => item.medicine.category))];
 
@@ -119,7 +156,7 @@ export default function InventoryPage() {
   const lowStockCount = filteredInventory.filter(item => item.isLowStock).length;
   const outOfStockCount = filteredInventory.filter(item => item.quantity === 0).length;
   const totalValue = filteredInventory.reduce((sum, item) => 
-    sum + (item.quantity * item.medicine.price), 0
+    sum + (item.quantity * (item.medicine.price || 0)), 0
   );
 
   // Pagination
@@ -137,14 +174,17 @@ export default function InventoryPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventory Management</h1>
-          <p className="text-gray-600 mt-1">Monitor stock levels and manage inventory</p>
+          <h1 className="text-2xl font-bold text-[var(--brand-blue)]">Inventory Management</h1>
+          <p className="text-[var(--foreground)]/70 mt-1">Monitor stock levels and manage inventory</p>
         </div>
         <div className="flex space-x-3 mt-4 sm:mt-0">
           <Button onClick={handleExport} variant="outline">
             Export Report
           </Button>
-          <Button>
+          <Button onClick={() => router.push('/inventory/bulk-upload')} variant="outline">
+            Bulk Upload
+          </Button>
+          <Button onClick={handleAddNewMedicine}>
             Add New Medicine
           </Button>
         </div>
@@ -306,7 +346,8 @@ export default function InventoryPage() {
                       <TableHead>Category</TableHead>
                       <TableHead>Batch/Expiry</TableHead>
                       <TableHead>Stock</TableHead>
-                      <TableHead>Price</TableHead>
+                      <TableHead>Purchase Price</TableHead>
+                      <TableHead>MRP</TableHead>
                       <TableHead>Value</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
@@ -354,10 +395,13 @@ export default function InventoryPage() {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatCurrency(item.medicine.price)}
+                          {formatCurrency(item.medicine.price || 0)}
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatCurrency(item.quantity * item.medicine.price)}
+                          {formatCurrency(item.medicine.mrp || item.medicine.price || 0)}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(item.quantity * (item.medicine.price || 0))}
                         </TableCell>
                         <TableCell>
                           {item.quantity === 0 ? (
@@ -373,14 +417,29 @@ export default function InventoryPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
-                              Update Stock
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              Edit
-                            </Button>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                </svg>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleUpdateStock(item.medicineId)}>
+                                Update Stock
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditMedicine(item.medicineId)}>
+                                Edit Medicine
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteMedicine(item.medicineId)}
+                                className="text-red-600"
+                              >
+                                Delete Medicine
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}

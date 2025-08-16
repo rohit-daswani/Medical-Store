@@ -1,89 +1,152 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DataStore } from '@/lib/mock-data';
 import { ExpiringMedicine } from '@/types';
-import { formatDate, exportExpiringMedicines } from '@/lib/export-utils';
-import { toast } from 'sonner';
+import { formatDate } from '@/lib/export-utils';
+
+type SortField = 'name' | 'supplier' | 'expiryDate' | 'daysToExpiry';
+type SortOrder = 'asc' | 'desc';
 
 export default function ExpiringMedicinesPage() {
-  const [expiringMedicines, setExpiringMedicines] = useState<ExpiringMedicine[]>([]);
+  const [medicines, setMedicines] = useState<ExpiringMedicine[]>([]);
   const [filteredMedicines, setFilteredMedicines] = useState<ExpiringMedicine[]>([]);
-  const [expiryPeriod, setExpiryPeriod] = useState(30);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(15);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<SortField>('daysToExpiry');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [daysFilter, setDaysFilter] = useState('30');
 
   useEffect(() => {
-    const medicines = DataStore.getExpiringMedicines(expiryPeriod);
-    setExpiringMedicines(medicines);
-    setFilteredMedicines(medicines);
+    // Load expiring medicines
+    const days = parseInt(daysFilter);
+    const expiringMeds = DataStore.getExpiringMedicines(days);
+    setMedicines(expiringMeds);
+  }, [daysFilter]);
 
-    // Show notification if there are expiring medicines
-    if (medicines.length > 0) {
-      toast.warning(`${medicines.length} medicines are expiring within ${expiryPeriod} days!`);
+  useEffect(() => {
+    // Apply search filter
+    let filtered = medicines;
+
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = medicines.filter(medicine =>
+        medicine.name.toLowerCase().includes(searchLower) ||
+        medicine.supplier.toLowerCase().includes(searchLower) ||
+        medicine.batchNo.toLowerCase().includes(searchLower)
+      );
     }
-  }, [expiryPeriod]);
 
-  const handlePeriodChange = (period: string) => {
-    setExpiryPeriod(parseInt(period));
-    setCurrentPage(1);
-  };
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
 
-  const handleExport = () => {
-    try {
-      if (filteredMedicines.length === 0) {
-        toast.error('No expiring medicines to export');
-        return;
+      switch (sortField) {
+        case 'name':
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case 'supplier':
+          aValue = a.supplier.toLowerCase();
+          bValue = b.supplier.toLowerCase();
+          break;
+        case 'expiryDate':
+          aValue = new Date(a.expiryDate).getTime();
+          bValue = new Date(b.expiryDate).getTime();
+          break;
+        case 'daysToExpiry':
+          aValue = a.daysToExpiry;
+          bValue = b.daysToExpiry;
+          break;
+        default:
+          aValue = a.daysToExpiry;
+          bValue = b.daysToExpiry;
       }
 
-      exportExpiringMedicines(filteredMedicines);
-      toast.success('Expiring medicines report exported successfully');
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export expiring medicines report');
-    }
-  };
+      if (aValue < bValue) {
+        return sortOrder === 'asc' ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return sortOrder === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    setFilteredMedicines(filtered);
+  }, [medicines, searchTerm, sortField, sortOrder]);
 
   // Categorize medicines by urgency
   const criticalMedicines = filteredMedicines.filter(med => med.daysToExpiry <= 7);
   const warningMedicines = filteredMedicines.filter(med => med.daysToExpiry > 7 && med.daysToExpiry <= 15);
   const watchMedicines = filteredMedicines.filter(med => med.daysToExpiry > 15);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredMedicines.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentMedicines = filteredMedicines.slice(startIndex, endIndex);
-
-  const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  };
-
-  const getUrgencyBadge = (daysToExpiry: number) => {
-    if (daysToExpiry <= 7) {
-      return <Badge variant="destructive">Critical - {daysToExpiry} days</Badge>;
-    } else if (daysToExpiry <= 15) {
-      return <Badge variant="secondary" className="bg-orange-100 text-orange-800">Warning - {daysToExpiry} days</Badge>;
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
-      return <Badge variant="outline">Watch - {daysToExpiry} days</Badge>;
+      setSortField(field);
+      setSortOrder('asc');
     }
   };
 
-  const getRowClassName = (daysToExpiry: number) => {
-    if (daysToExpiry <= 7) {
-      return 'bg-red-50 border-l-4 border-red-500';
-    } else if (daysToExpiry <= 15) {
-      return 'bg-orange-50 border-l-4 border-orange-500';
-    } else {
-      return 'bg-yellow-50 border-l-4 border-yellow-500';
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return (
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
     }
+
+    return sortOrder === 'asc' ? (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+      </svg>
+    ) : (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    );
+  };
+
+  const getPriorityBadge = (daysToExpiry: number) => {
+    if (daysToExpiry <= 7) {
+      return <Badge variant="destructive">Critical</Badge>;
+    } else if (daysToExpiry <= 15) {
+      return <Badge className="bg-orange-500 hover:bg-orange-600">Warning</Badge>;
+    } else if (daysToExpiry <= 30) {
+      return <Badge className="bg-yellow-500 hover:bg-yellow-600">Caution</Badge>;
+    } else {
+      return <Badge variant="secondary">Monitor</Badge>;
+    }
+  };
+
+  const exportData = () => {
+    const csvContent = [
+      ['Medicine Name', 'Supplier', 'Batch No', 'Expiry Date', 'Days to Expiry', 'Quantity'].join(','),
+      ...filteredMedicines.map(medicine => [
+        medicine.name,
+        medicine.supplier,
+        medicine.batchNo,
+        medicine.expiryDate,
+        medicine.daysToExpiry.toString(),
+        medicine.quantity.toString()
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expiring-medicines-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -91,226 +154,201 @@ export default function ExpiringMedicinesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Expiring Medicines</h1>
-          <p className="text-gray-600 mt-1">Monitor medicines approaching expiry dates</p>
+          <h1 className="text-2xl font-bold text-[var(--brand-blue)]">Expiring Medicines</h1>
+          <p className="text-[var(--foreground)]/70 mt-1">Monitor medicines approaching expiry</p>
         </div>
-        <div className="flex space-x-3 mt-4 sm:mt-0">
-          <Button onClick={handleExport} variant="outline" disabled={filteredMedicines.length === 0}>
-            Export Report
-          </Button>
-        </div>
+        <Button onClick={exportData} variant="outline">
+          Export to CSV
+        </Button>
       </div>
 
-      {/* Period Selection */}
+      {/* Filters and Search */}
       <Card>
-        <CardHeader>
-          <CardTitle>Expiry Period Filter</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center space-x-4">
-            <Label>Show medicines expiring within:</Label>
-            <Select value={expiryPeriod.toString()} onValueChange={handlePeriodChange}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">7 days</SelectItem>
-                <SelectItem value="15">15 days</SelectItem>
-                <SelectItem value="30">30 days</SelectItem>
-                <SelectItem value="60">60 days</SelectItem>
-                <SelectItem value="90">90 days</SelectItem>
-              </SelectContent>
-            </Select>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label>Search</Label>
+              <Input
+                placeholder="Search medicines, supplier, batch..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Days to Expiry</Label>
+              <Select value={daysFilter} onValueChange={setDaysFilter}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">Next 7 days</SelectItem>
+                  <SelectItem value="15">Next 15 days</SelectItem>
+                  <SelectItem value="30">Next 30 days</SelectItem>
+                  <SelectItem value="60">Next 60 days</SelectItem>
+                  <SelectItem value="90">Next 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Sort By</Label>
+              <Select value={sortField} onValueChange={(value: SortField) => setSortField(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daysToExpiry">Days to Expiry</SelectItem>
+                  <SelectItem value="expiryDate">Expiry Date</SelectItem>
+                  <SelectItem value="name">Medicine Name</SelectItem>
+                  <SelectItem value="supplier">Supplier</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Order</Label>
+              <Select value={sortOrder} onValueChange={(value: SortOrder) => setSortOrder(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                  <SelectItem value="desc">Descending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Alerts */}
-      {criticalMedicines.length > 0 && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertDescription className="text-red-800">
-            <strong>Critical Alert:</strong> {criticalMedicines.length} medicines are expiring within 7 days and need immediate attention!
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {warningMedicines.length > 0 && (
-        <Alert className="border-orange-200 bg-orange-50">
-          <AlertDescription className="text-orange-800">
-            <strong>Warning:</strong> {warningMedicines.length} medicines are expiring within 8-15 days. Plan for clearance or return.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Expiring</CardTitle>
-            <span className="text-2xl">📅</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredMedicines.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Within {expiryPeriod} days
-            </p>
+          <CardContent className="p-4">
+            <div className="text-sm text-gray-600">Critical (≤7 days)</div>
+            <div className="text-2xl font-bold text-red-600">
+              {filteredMedicines.filter(m => m.daysToExpiry <= 7).length}
+            </div>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical (≤7 days)</CardTitle>
-            <span className="text-2xl">🚨</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{criticalMedicines.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Immediate action needed
-            </p>
+          <CardContent className="p-4">
+            <div className="text-sm text-gray-600">Warning (≤15 days)</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {filteredMedicines.filter(m => m.daysToExpiry <= 15 && m.daysToExpiry > 7).length}
+            </div>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Warning (8-15 days)</CardTitle>
-            <span className="text-2xl">⚠️</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{warningMedicines.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Plan clearance
-            </p>
+          <CardContent className="p-4">
+            <div className="text-sm text-gray-600">Caution (≤30 days)</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {filteredMedicines.filter(m => m.daysToExpiry <= 30 && m.daysToExpiry > 15).length}
+            </div>
           </CardContent>
         </Card>
-
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Watch ({'>'}15 days)</CardTitle>
-            <span className="text-2xl">👁️</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{watchMedicines.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Monitor closely
-            </p>
+          <CardContent className="p-4">
+            <div className="text-sm text-gray-600">Total Medicines</div>
+            <div className="text-2xl font-bold">
+              {filteredMedicines.length}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Expiring Medicines Table */}
+      {/* Medicines Table */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            Expiring Medicines ({filteredMedicines.length} items)
-          </CardTitle>
+          <CardTitle>Expiring Medicines ({filteredMedicines.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {currentMedicines.length === 0 ? (
+          {filteredMedicines.length === 0 ? (
             <div className="text-center py-8">
-              <div className="text-6xl mb-4">🎉</div>
-              <p className="text-lg font-medium text-green-600">Great news!</p>
-              <p className="text-gray-500">No medicines are expiring within {expiryPeriod} days</p>
+              <p className="text-gray-500">
+                {searchTerm ? 'No medicines found matching your search' : 'No medicines expiring in the selected timeframe'}
+              </p>
             </div>
           ) : (
-            <>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Medicine Name</TableHead>
-                      <TableHead>Batch Number</TableHead>
-                      <TableHead>Supplier</TableHead>
-                      <TableHead>Expiry Date</TableHead>
-                      <TableHead>Stock Quantity</TableHead>
-                      <TableHead>Days to Expiry</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {currentMedicines.map((medicine) => (
-                      <TableRow key={medicine.id} className={getRowClassName(medicine.daysToExpiry)}>
-                        <TableCell className="font-medium">
-                          {medicine.name}
-                        </TableCell>
-                        <TableCell>
-                          {medicine.batchNo}
-                        </TableCell>
-                        <TableCell>
-                          {medicine.supplier}
-                        </TableCell>
-                        <TableCell>
-                          <div className={`font-medium ${
-                            medicine.daysToExpiry <= 7 ? 'text-red-600' :
-                            medicine.daysToExpiry <= 15 ? 'text-orange-600' : 'text-yellow-600'
-                          }`}>
-                            {formatDate(medicine.expiryDate)}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="font-medium">{medicine.quantity}</span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">
-                            {medicine.daysToExpiry} days
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {getUrgencyBadge(medicine.daysToExpiry)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
-                              Mark for Return
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              Discount Sale
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-gray-600">
-                    Showing {startIndex + 1} to {Math.min(endIndex, filteredMedicines.length)} of{' '}
-                    {filteredMedicines.length} medicines
-                  </p>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => goToPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <span className="flex items-center px-3 py-1 text-sm">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => goToPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3">
+                      <button
+                        onClick={() => handleSort('name')}
+                        className="flex items-center space-x-1 hover:text-blue-600"
+                      >
+                        <span>Medicine Name</span>
+                        {getSortIcon('name')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3">
+                      <button
+                        onClick={() => handleSort('supplier')}
+                        className="flex items-center space-x-1 hover:text-blue-600"
+                      >
+                        <span>Supplier</span>
+                        {getSortIcon('supplier')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3">Batch No</th>
+                    <th className="text-left p-3">
+                      <button
+                        onClick={() => handleSort('expiryDate')}
+                        className="flex items-center space-x-1 hover:text-blue-600"
+                      >
+                        <span>Expiry Date</span>
+                        {getSortIcon('expiryDate')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3">
+                      <button
+                        onClick={() => handleSort('daysToExpiry')}
+                        className="flex items-center space-x-1 hover:text-blue-600"
+                      >
+                        <span>Days to Expiry</span>
+                        {getSortIcon('daysToExpiry')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3">Quantity</th>
+                    <th className="text-left p-3">Priority</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMedicines.map((medicine) => (
+                    <tr key={medicine.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3">
+                        <div>
+                          <p className="font-medium">{medicine.name}</p>
+                        </div>
+                      </td>
+                      <td className="p-3 text-gray-600">{medicine.supplier}</td>
+                      <td className="p-3 text-gray-600">{medicine.batchNo}</td>
+                      <td className="p-3 text-gray-600">{formatDate(medicine.expiryDate)}</td>
+                      <td className="p-3">
+                        <span className={`font-medium ${
+                          medicine.daysToExpiry <= 7 ? 'text-red-600' :
+                          medicine.daysToExpiry <= 15 ? 'text-orange-600' :
+                          medicine.daysToExpiry <= 30 ? 'text-yellow-600' :
+                          'text-gray-600'
+                        }`}>
+                          {medicine.daysToExpiry} days
+                        </span>
+                      </td>
+                      <td className="p-3 text-gray-600">{medicine.quantity}</td>
+                      <td className="p-3">
+                        {getPriorityBadge(medicine.daysToExpiry)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Action Recommendations */}
-      {filteredMedicines.length > 0 && (
+{/* Action Recommendations */}
+{filteredMedicines.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Recommended Actions</CardTitle>
@@ -356,6 +394,9 @@ export default function ExpiringMedicinesPage() {
           </CardContent>
         </Card>
       )}
+
+
+
     </div>
   );
 }

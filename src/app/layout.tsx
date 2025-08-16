@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
-import { Sidebar } from '@/components/Sidebar'
+import { AuthWrapper } from '@/components/AuthWrapper'
+import { LayoutContent } from '@/components/LayoutContent'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -19,12 +20,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="flex min-h-screen bg-[var(--background)]">
-          <Sidebar />
-          <main className="flex-1 p-6 lg:ml-64 max-w-7xl mx-auto">
+        <AuthWrapper>
+          <LayoutContent>
             {children}
-          </main>
-        </div>
+          </LayoutContent>
+        </AuthWrapper>
         <Toaster
           position="top-right"
           toastOptions={{

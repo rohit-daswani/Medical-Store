@@ -328,7 +328,7 @@ export default function AnalyticsPage() {
                   />
                   <Bar 
                     dataKey="sales" 
-                    fill="#10B981"
+                    fill="#06B6D4"
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
@@ -378,7 +378,7 @@ export default function AnalyticsPage() {
                   />
                   <Bar 
                     dataKey="purchases" 
-                    fill="#F59E0B"
+                    fill="#F04438"
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>

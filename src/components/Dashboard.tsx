@@ -8,12 +8,16 @@ import { DataStore } from '@/lib/mock-data';
 import { DashboardStats, Transaction, ExpiringMedicine } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/export-utils';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { NotificationPanel } from './NotificationPanel';
+import { UserMenu } from './UserMenu';
 
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -31,8 +35,35 @@ export function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('month');
   const [dateRange, setDateRange] = useState<string>('');
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const router = useRouter();
 
   const processChartData = (timeRange: TimeRange) => {
+    if (timeRange === 'month') {
+      // Use the new monthly revenue data for month view to show profit/loss clearly
+      const monthlyData = DataStore.getMonthlyRevenueData();
+      
+      const chartArray = Object.entries(monthlyData)
+        .map(([period, data]) => {
+          const date = new Date(period + '-01');
+          return {
+            period: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+            totalRevenue: data.profit, // Profit/Loss (Sales - Purchases)
+            totalSales: data.sales,
+            purchaseCost: data.purchases,
+            originalPeriod: period,
+            sortDate: date
+          };
+        })
+        .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
+        .slice(-12); // Show last 12 months
+
+      return chartArray;
+    }
+
+    // For day and week views, use the existing logic
     const salesTransactions = DataStore.getTransactions('sell');
     const purchaseTransactions = DataStore.getTransactions('purchase');
     
@@ -57,7 +88,7 @@ export function Dashboard() {
           const date = new Date(dateStr);
           const startOfWeek = new Date(date);
           startOfWeek.setDate(date.getDate() - date.getDay());
-          return startOfWeek.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+          return startOfWeek.toISOString().split('T')[0];
         };
         displayFormat = (key: string) => {
           const date = new Date(key);
@@ -66,16 +97,6 @@ export function Dashboard() {
         };
         getDateForRange = (key: string) => new Date(key);
         break;
-      default: // month
-        formatKey = (dateStr: string) => {
-          const date = new Date(dateStr);
-          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        };
-        displayFormat = (key: string) => {
-          const date = new Date(key + '-01');
-          return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-        };
-        getDateForRange = (key: string) => new Date(key + '-01');
     }
 
     const transactionsByPeriod: Record<string, { totalRevenue: number; totalSales: number; purchaseCost: number }> = {};
@@ -106,14 +127,14 @@ export function Dashboard() {
     const chartArray = Object.entries(transactionsByPeriod)
       .map(([period, amounts]) => ({
         period: displayFormat(period),
-        totalRevenue: amounts.totalRevenue, // Sales - Purchase Cost
+        totalRevenue: amounts.totalRevenue,
         totalSales: amounts.totalSales,
-        purchaseCost: amounts.purchaseCost, // New parameter
+        purchaseCost: amounts.purchaseCost,
         originalPeriod: period,
         sortDate: getDateForRange(period)
       }))
       .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
-      .slice(-12); // Show last 12 periods
+      .slice(-12);
 
     return chartArray;
   };
@@ -148,6 +169,9 @@ export function Dashboard() {
     setExpiringMedicines(expiring);
     setLowStockMedicines(lowStock);
 
+    // Calculate notification count
+    setNotificationCount(lowStock.length + expiring.length + 1); // +1 for system notifications
+
     // Process chart data based on selected time range
     const processedData = processChartData(selectedTimeRange);
     setChartData(processedData);
@@ -167,6 +191,71 @@ export function Dashboard() {
     setSelectedTimeRange(range);
   };
 
+  const handleMonthlySalesClick = () => {
+    const today = new Date();
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+    
+    const startDate = oneMonthAgo.toISOString().split('T')[0];
+    const endDate = today.toISOString().split('T')[0];
+    
+    router.push(`/transactions/history?type=sell&startDate=${startDate}&endDate=${endDate}`);
+  };
+
+  const handleMonthlyPurchasesClick = () => {
+    const today = new Date();
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+    
+    const startDate = oneMonthAgo.toISOString().split('T')[0];
+    const endDate = today.toISOString().split('T')[0];
+    
+    router.push(`/transactions/history?type=purchase&startDate=${startDate}&endDate=${endDate}`);
+  };
+
+  const handleLowStockClick = () => {
+    router.push('/inventory?filter=low-stock');
+  };
+
+  const handleExpiringClick = () => {
+    router.push('/expiring');
+  };
+
+  // Custom tooltip to show profit/loss clearly
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const isProfit = data.totalRevenue >= 0;
+      
+      return (
+        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-medium text-gray-900 mb-2">{label}</p>
+          <div className="space-y-1">
+            <p className="text-sm">
+              <span className="text-cyan-600">Sales: </span>
+              <span className="font-medium">{formatCurrency(data.totalSales)}</span>
+            </p>
+            <p className="text-sm">
+              <span className="text-gray-600">Purchases: </span>
+              <span className="font-medium">{formatCurrency(data.purchaseCost)}</span>
+            </p>
+            <div className="border-t pt-1">
+              <p className="text-sm">
+                <span className={isProfit ? "text-green-600" : "text-red-600"}>
+                  {isProfit ? "Profit: " : "Loss: "}
+                </span>
+                <span className={`font-medium ${isProfit ? "text-green-600" : "text-red-600"}`}>
+                  {formatCurrency(Math.abs(data.totalRevenue))}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (!stats) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -180,25 +269,70 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with Notifications and User Menu */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[var(--brand-blue)]">Dashboard</h1>
           <p className="text-[var(--foreground)]/70 mt-1">Welcome to MediStore Pro</p>
         </div>
-        <div className="flex space-x-3 mt-4 sm:mt-0">
-          <Link href="/transactions">
+        <div className="flex items-center space-x-3 mt-4 sm:mt-0">
+          <Link href="/transactions/quick-sell">
             <Button size="sm">New Transaction</Button>
           </Link>
           <Link href="/inventory">
             <Button variant="outline" size="sm">View Inventory</Button>
           </Link>
+          
+          {/* Notification Bell */}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              {notificationCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </Button>
+          </div>
+
+          {/* User Menu */}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="relative p-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </Button>
+          </div>
         </div>
       </div>
 
+      {/* Notification Panel */}
+      <NotificationPanel 
+        isOpen={showNotifications} 
+        onClose={() => setShowNotifications(false)} 
+      />
+
+      {/* User Menu */}
+      <UserMenu 
+        isOpen={showUserMenu} 
+        onClose={() => setShowUserMenu(false)} 
+      />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleMonthlySalesClick}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Monthly Sales</CardTitle>
             <span className="text-2xl">💰</span>
@@ -211,7 +345,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleMonthlyPurchasesClick}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Monthly Purchases</CardTitle>
             <span className="text-2xl">📦</span>
@@ -224,7 +358,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleLowStockClick}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
             <span className="text-2xl">⚠️</span>
@@ -237,7 +371,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleExpiringClick}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
             <span className="text-2xl">📅</span>
@@ -251,7 +385,7 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* Enhanced Sales & Revenue Chart */}
+      {/* Enhanced Profit/Loss Chart */}
       <div className="mt-6">
         <Card>
           <CardContent className="p-6">
@@ -262,7 +396,7 @@ export function Dashboard() {
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 rounded-full bg-[#4F46E5]"></div>
-                    <span className="text-sm font-medium text-[#4F46E5]">Total Revenue</span>
+                    <span className="text-sm font-medium text-[#4F46E5]">Profit/Loss</span>
                   </div>
                   <div className="text-xs text-gray-500">{dateRange}</div>
                 </div>
@@ -296,7 +430,7 @@ export function Dashboard() {
             {/* Chart */}
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis 
                     dataKey="period" 
@@ -311,36 +445,30 @@ export function Dashboard() {
                     tickFormatter={(value) => formatCurrency(value)}
                     width={70}
                   />
-                  <Tooltip 
-                    formatter={(value: number, name: string) => [
-                      formatCurrency(value), 
-                      name === 'totalRevenue' ? 'Total Revenue' : 'Total Sales'
-                    ]}
-                    labelStyle={{ color: '#1e293b' }}
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                  <Line 
+                  <Tooltip content={<CustomTooltip />} />
+                  
+                  {/* Area fills under the lines */}
+                  <Area 
                     type="linear" 
                     dataKey="totalRevenue" 
+                    fill="#4F46E5" 
+                    fillOpacity={0.1}
                     stroke="#4F46E5" 
-                    strokeWidth={2}
-                    dot={{ fill: '#4F46E5', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: '#4F46E5' }}
+                    strokeWidth={3}
+                    dot={{ fill: '#4F46E5', strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 7, fill: '#4F46E5' }}
                   />
-                  <Line 
+                  <Area 
                     type="linear" 
                     dataKey="totalSales" 
+                    fill="#06B6D4" 
+                    fillOpacity={0.1}
                     stroke="#06B6D4" 
                     strokeWidth={2}
                     dot={{ fill: '#06B6D4', strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6, fill: '#06B6D4' }}
                   />
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             ) : (
               <div className="text-center py-8">
@@ -361,7 +489,7 @@ export function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Recent Transactions</CardTitle>
-            <Link href="/transactions">
+            <Link href="/transactions/history">
               <Button variant="outline" size="sm">View All</Button>
             </Link>
           </CardHeader>
@@ -414,9 +542,9 @@ export function Dashboard() {
                         {lowStockMedicines.length} medicines need restocking
                       </p>
                     </div>
-                    <Link href="/inventory">
-                      <Button variant="outline" size="sm">View</Button>
-                    </Link>
+                    <Button variant="outline" size="sm" onClick={handleLowStockClick}>
+                      View
+                    </Button>
                   </div>
                   <div className="mt-2 space-y-1">
                     {lowStockMedicines.slice(0, 3).map((item) => (
@@ -443,9 +571,9 @@ export function Dashboard() {
                         {expiringMedicines.length} medicines expiring within 15 days
                       </p>
                     </div>
-                    <Link href="/expiring">
-                      <Button variant="outline" size="sm">View</Button>
-                    </Link>
+                    <Button variant="outline" size="sm" onClick={handleExpiringClick}>
+                      View
+                    </Button>
                   </div>
                   <div className="mt-2 space-y-1">
                     {expiringMedicines.slice(0, 3).map((medicine) => (
@@ -478,9 +606,6 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      {/* Removed as per user request */}
     </div>
   );
 }

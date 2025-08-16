@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -36,7 +36,36 @@ const navigation = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-6a2 2 0 012-2h6" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h7v7a2 2 0 01-2 2h-6" />
       </svg>
-    )
+    ),
+    subItems: [
+      {
+        name: 'Quick Sell',
+        href: '/transactions/quick-sell',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+          </svg>
+        )
+      },
+      {
+        name: 'Purchase Stock',
+        href: '/transactions/purchase',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+        )
+      },
+      {
+        name: 'Transaction History',
+        href: '/transactions/history',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+        )
+      }
+    ]
   },
   {
     name: 'Inventory',
@@ -45,6 +74,15 @@ const navigation = [
       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
         <rect width="20" height="14" x="2" y="5" rx="2" ry="2" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M2 10h20" />
+      </svg>
+    )
+  },
+  {
+    name: 'Suppliers',
+    href: '/suppliers',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
       </svg>
     )
   },
@@ -82,14 +120,49 @@ const navigation = [
 
 function SidebarContent() {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['Dashboard']); // Dashboard expanded by default
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  // Auto-expand based on current path
+  useEffect(() => {
+    const currentPath = pathname;
+    const newExpanded: string[] = [];
+
+    // Check if we're on dashboard or analytics
+    if (currentPath === '/' || currentPath === '/analytics') {
+      newExpanded.push('Dashboard');
+    }
+    
+    // Check if we're on any transaction page
+    if (currentPath.startsWith('/transactions')) {
+      newExpanded.push('Transactions');
+    }
+
+    setExpandedItems(newExpanded);
+  }, [pathname]);
 
   const toggleExpanded = (itemName: string) => {
-    setExpandedItems(prev => 
-      prev.includes(itemName) 
+    setExpandedItems(prev => {
+      // If clicking on Analytics page, collapse Dashboard when other tabs are clicked
+      if (pathname === '/analytics' && itemName !== 'Dashboard') {
+        return prev.includes(itemName) 
+          ? prev.filter(name => name !== itemName)
+          : [itemName]; // Only expand the clicked item, collapse others
+      }
+      
+      return prev.includes(itemName) 
         ? prev.filter(name => name !== itemName)
-        : [...prev, itemName]
-    );
+        : [...prev, itemName];
+    });
+  };
+
+  const isItemActive = (item: any) => {
+    if (item.href === '/' && pathname === '/') return true;
+    if (item.href !== '/' && pathname.startsWith(item.href)) return true;
+    return false;
+  };
+
+  const hasActiveSubItem = (item: any) => {
+    return item.subItems && item.subItems.some((subItem: any) => pathname === subItem.href);
   };
 
   return (
@@ -107,10 +180,10 @@ function SidebarContent() {
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navigation.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = isItemActive(item);
           const hasSubItems = item.subItems && item.subItems.length > 0;
           const isExpanded = expandedItems.includes(item.name);
-          const hasActiveSubItem = hasSubItems && item.subItems?.some(subItem => pathname === subItem.href);
+          const hasActiveSubItemCheck = hasActiveSubItem(item);
 
           return (
             <div key={item.name}>
@@ -120,20 +193,20 @@ function SidebarContent() {
                   href={item.href}
                   className={cn(
                     'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors flex-1',
-                    isActive || hasActiveSubItem
+                    isActive || hasActiveSubItemCheck
                       ? 'text-[#465fff]' 
                       : 'text-black hover:text-black'
                   )}
                   style={{
-                    backgroundColor: isActive || hasActiveSubItem ? '#ecf3ff' : 'transparent',
+                    backgroundColor: isActive || hasActiveSubItemCheck ? '#ecf3ff' : 'transparent',
                   }}
                   onMouseEnter={(e) => {
-                    if (!isActive && !hasActiveSubItem) {
+                    if (!isActive && !hasActiveSubItemCheck) {
                       e.currentTarget.style.backgroundColor = '#f2f4f7';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isActive && !hasActiveSubItem) {
+                    if (!isActive && !hasActiveSubItemCheck) {
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }
                   }}
@@ -141,7 +214,7 @@ function SidebarContent() {
                   <span 
                     className="mr-3 text-lg" 
                     style={{ 
-                      color: isActive || hasActiveSubItem ? '#465fff' : 'black' 
+                      color: isActive || hasActiveSubItemCheck ? '#465fff' : 'black' 
                     }}
                   >
                     {item.icon}
