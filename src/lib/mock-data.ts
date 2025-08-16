@@ -135,132 +135,132 @@ export const mockMedicines: Medicine[] = [
 
 export const mockTransactions: Transaction[] = [
   // 2023 Transactions
-  // January 2023
+  // January 2023 - LOSS PERIOD (Selling below cost due to competition)
   {
     id: 'TXN001',
     type: 'sell',
-    items: [{ medicineId: '1', medicineName: 'Paracetamol 500mg', quantity: 10, price: 25.50, batchNo: 'PCM001', expiryDate: '2025-12-31' }],
-    totalAmount: 255.00,
+    items: [{ medicineId: '1', medicineName: 'Paracetamol 500mg', quantity: 10, price: 18.00, batchNo: 'PCM001', expiryDate: '2025-12-31' }],
+    totalAmount: 180.00,
     date: '2023-01-15T10:30:00Z',
     customerName: 'Rajesh Kumar',
     customerPhone: '+91-9876543210',
-    gstAmount: 45.90,
+    gstAmount: 32.40,
     invoiceNumber: 'INV001',
     paymentMethod: 'cash'
   },
   {
     id: 'TXN002',
     type: 'sell',
-    items: [{ medicineId: '3', medicineName: 'Cetirizine 10mg', quantity: 8, price: 18.75, batchNo: 'CTZ003', expiryDate: '2025-03-20' }],
-    totalAmount: 150.00,
+    items: [{ medicineId: '3', medicineName: 'Cetirizine 10mg', quantity: 8, price: 12.00, batchNo: 'CTZ003', expiryDate: '2025-03-20' }],
+    totalAmount: 96.00,
     date: '2023-01-28T14:15:00Z',
     customerName: 'Priya Sharma',
     customerPhone: '+91-9123456789',
-    gstAmount: 27.00,
+    gstAmount: 17.28,
     invoiceNumber: 'INV002',
     paymentMethod: 'card'
   },
 
-  // February 2023
+  // February 2023 - BREAK-EVEN PERIOD
   {
     id: 'TXN003',
     type: 'sell',
-    items: [{ medicineId: '5', medicineName: 'Omeprazole 20mg', quantity: 12, price: 32.25, batchNo: 'OMP005', expiryDate: '2025-08-30' }],
-    totalAmount: 387.00,
+    items: [{ medicineId: '5', medicineName: 'Omeprazole 20mg', quantity: 12, price: 25.00, batchNo: 'OMP005', expiryDate: '2025-08-30' }],
+    totalAmount: 300.00,
     date: '2023-02-10T11:00:00Z',
     customerName: 'Anita Singh',
     customerPhone: '+91-9988776655',
-    gstAmount: 69.66,
+    gstAmount: 54.00,
     invoiceNumber: 'INV003',
     paymentMethod: 'upi'
   },
   {
     id: 'TXN004',
     type: 'sell',
-    items: [{ medicineId: '6', medicineName: 'Metformin 500mg', quantity: 15, price: 28.50, batchNo: 'MET006', expiryDate: '2025-11-25' }],
-    totalAmount: 427.50,
+    items: [{ medicineId: '6', medicineName: 'Metformin 500mg', quantity: 15, price: 22.50, batchNo: 'MET006', expiryDate: '2025-11-25' }],
+    totalAmount: 337.50,
     date: '2023-02-25T16:45:00Z',
     customerName: 'Vikram Patel',
     customerPhone: '+91-9876543210',
-    gstAmount: 76.95,
+    gstAmount: 60.75,
     invoiceNumber: 'INV004',
     paymentMethod: 'cash'
   },
 
-  // March 2023
+  // March 2023 - LOSS PERIOD (Clearance sale)
   {
     id: 'TXN005',
     type: 'sell',
-    items: [{ medicineId: '8', medicineName: 'Vitamin D3 60000 IU', quantity: 6, price: 65.00, batchNo: 'VTD008', expiryDate: '2025-09-18' }],
-    totalAmount: 390.00,
+    items: [{ medicineId: '8', medicineName: 'Vitamin D3 60000 IU', quantity: 6, price: 45.00, batchNo: 'VTD008', expiryDate: '2025-09-18' }],
+    totalAmount: 270.00,
     date: '2023-03-12T09:30:00Z',
     customerName: 'Meera Gupta',
     customerPhone: '+91-9123456789',
-    gstAmount: 70.20,
+    gstAmount: 48.60,
     invoiceNumber: 'INV005',
     paymentMethod: 'card'
   },
   {
     id: 'TXN006',
     type: 'sell',
-    items: [{ medicineId: '10', medicineName: 'Aspirin 75mg', quantity: 20, price: 15.25, batchNo: 'ASP010', expiryDate: '2025-07-08' }],
-    totalAmount: 305.00,
+    items: [{ medicineId: '10', medicineName: 'Aspirin 75mg', quantity: 20, price: 10.00, batchNo: 'ASP010', expiryDate: '2025-07-08' }],
+    totalAmount: 200.00,
     date: '2023-03-28T13:20:00Z',
     customerName: 'Ravi Kumar',
     customerPhone: '+91-9988776655',
-    gstAmount: 54.90,
+    gstAmount: 36.00,
     invoiceNumber: 'INV006',
     paymentMethod: 'upi'
   },
 
-  // April 2023
+  // April 2023 - HIGH PROFIT PERIOD (Premium pricing)
   {
     id: 'TXN007',
     type: 'sell',
-    items: [{ medicineId: '1', medicineName: 'Paracetamol 500mg', quantity: 18, price: 25.50, batchNo: 'PCM001', expiryDate: '2025-12-31' }],
-    totalAmount: 459.00,
+    items: [{ medicineId: '1', medicineName: 'Paracetamol 500mg', quantity: 18, price: 30.00, batchNo: 'PCM001', expiryDate: '2025-12-31' }],
+    totalAmount: 540.00,
     date: '2023-04-08T10:15:00Z',
     customerName: 'Sunita Devi',
     customerPhone: '+91-9876543210',
-    gstAmount: 82.62,
+    gstAmount: 97.20,
     invoiceNumber: 'INV007',
     paymentMethod: 'cash'
   },
   {
     id: 'TXN008',
     type: 'sell',
-    items: [{ medicineId: '2', medicineName: 'Amoxicillin 250mg', quantity: 4, price: 45.00, batchNo: 'AMX002', expiryDate: '2025-06-15' }],
-    totalAmount: 180.00,
+    items: [{ medicineId: '2', medicineName: 'Amoxicillin 250mg', quantity: 4, price: 55.00, batchNo: 'AMX002', expiryDate: '2025-06-15' }],
+    totalAmount: 220.00,
     date: '2023-04-22T15:30:00Z',
     customerName: 'Amit Joshi',
     customerPhone: '+91-9123456789',
-    gstAmount: 32.40,
+    gstAmount: 39.60,
     invoiceNumber: 'INV008',
     paymentMethod: 'card'
   },
 
-  // May 2023
+  // May 2023 - MIXED PERIOD (Some profit, some loss)
   {
     id: 'TXN009',
     type: 'sell',
-    items: [{ medicineId: '4', medicineName: 'Azithromycin 500mg', quantity: 3, price: 85.00, batchNo: 'AZT004', expiryDate: '2025-01-10' }],
-    totalAmount: 255.00,
+    items: [{ medicineId: '4', medicineName: 'Azithromycin 500mg', quantity: 3, price: 65.00, batchNo: 'AZT004', expiryDate: '2025-01-10' }],
+    totalAmount: 195.00,
     date: '2023-05-05T11:45:00Z',
     customerName: 'Deepak Singh',
     customerPhone: '+91-9988776655',
-    gstAmount: 45.90,
+    gstAmount: 35.10,
     invoiceNumber: 'INV009',
     paymentMethod: 'upi'
   },
   {
     id: 'TXN010',
     type: 'sell',
-    items: [{ medicineId: '7', medicineName: 'Diclofenac 50mg', quantity: 10, price: 22.00, batchNo: 'DCF007', expiryDate: '2025-02-14' }],
-    totalAmount: 220.00,
+    items: [{ medicineId: '7', medicineName: 'Diclofenac 50mg', quantity: 10, price: 16.00, batchNo: 'DCF007', expiryDate: '2025-02-14' }],
+    totalAmount: 160.00,
     date: '2023-05-20T14:00:00Z',
     customerName: 'Kavita Sharma',
     customerPhone: '+91-9876543210',
-    gstAmount: 39.60,
+    gstAmount: 28.80,
     invoiceNumber: 'INV010',
     paymentMethod: 'cash'
   },
@@ -448,7 +448,7 @@ export const mockTransactions: Transaction[] = [
   },
 
   // 2024 Transactions
-  // January 2024
+  // January 2024 - RECOVERY PERIOD (Back to normal profits)
   {
     id: 'TXN025',
     type: 'sell',
@@ -474,28 +474,28 @@ export const mockTransactions: Transaction[] = [
     paymentMethod: 'card'
   },
 
-  // February 2024
+  // February 2024 - EXCELLENT PROFIT PERIOD
   {
     id: 'TXN027',
     type: 'sell',
-    items: [{ medicineId: '4', medicineName: 'Azithromycin 500mg', quantity: 6, price: 85.00, batchNo: 'AZT004', expiryDate: '2025-01-10' }],
-    totalAmount: 510.00,
+    items: [{ medicineId: '4', medicineName: 'Azithromycin 500mg', quantity: 6, price: 95.00, batchNo: 'AZT004', expiryDate: '2025-01-10' }],
+    totalAmount: 570.00,
     date: '2024-02-08T10:15:00Z',
     customerName: 'Ashok Kumar',
     customerPhone: '+91-9988776655',
-    gstAmount: 91.80,
+    gstAmount: 102.60,
     invoiceNumber: 'INV027',
     paymentMethod: 'upi'
   },
   {
     id: 'TXN028',
     type: 'sell',
-    items: [{ medicineId: '7', medicineName: 'Diclofenac 50mg', quantity: 20, price: 22.00, batchNo: 'DCF007', expiryDate: '2025-02-14' }],
-    totalAmount: 440.00,
+    items: [{ medicineId: '7', medicineName: 'Diclofenac 50mg', quantity: 20, price: 28.00, batchNo: 'DCF007', expiryDate: '2025-02-14' }],
+    totalAmount: 560.00,
     date: '2024-02-22T15:30:00Z',
     customerName: 'Usha Rani',
     customerPhone: '+91-9876543210',
-    gstAmount: 79.20,
+    gstAmount: 100.80,
     invoiceNumber: 'INV028',
     paymentMethod: 'cash'
   },
