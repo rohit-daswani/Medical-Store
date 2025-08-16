@@ -12,8 +12,8 @@ import { toast } from 'sonner';
 
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -273,13 +273,6 @@ export function Dashboard() {
                   </div>
                   <div className="text-xs text-gray-500">{dateRange}</div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 rounded-full bg-[#EF4444]"></div>
-                    <span className="text-sm font-medium text-[#EF4444]">Purchase Cost</span>
-                  </div>
-                  <div className="text-xs text-gray-500">{dateRange}</div>
-                </div>
               </div>
 
               {/* Time Range Selector */}
@@ -303,21 +296,7 @@ export function Dashboard() {
             {/* Chart */}
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={400}>
-                <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="totalRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#4F46E5" stopOpacity={0.1}/>
-                    </linearGradient>
-                    <linearGradient id="totalSales" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06B6D4" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#06B6D4" stopOpacity={0.1}/>
-                    </linearGradient>
-                    <linearGradient id="purchaseCost" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#EF4444" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
+                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis 
                     dataKey="period" 
@@ -335,8 +314,7 @@ export function Dashboard() {
                   <Tooltip 
                     formatter={(value: number, name: string) => [
                       formatCurrency(value), 
-                      name === 'totalRevenue' ? 'Total Revenue' : 
-                      name === 'totalSales' ? 'Total Sales' : 'Purchase Cost'
+                      name === 'totalRevenue' ? 'Total Revenue' : 'Total Sales'
                     ]}
                     labelStyle={{ color: '#1e293b' }}
                     contentStyle={{ 
@@ -346,34 +324,23 @@ export function Dashboard() {
                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                     }}
                   />
-                  <Area 
-                    type="monotone" 
+                  <Line 
+                    type="linear" 
                     dataKey="totalRevenue" 
                     stroke="#4F46E5" 
-                    fill="url(#totalRevenue)"
                     strokeWidth={2}
                     dot={{ fill: '#4F46E5', strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6, fill: '#4F46E5' }}
                   />
-                  <Area 
-                    type="monotone" 
+                  <Line 
+                    type="linear" 
                     dataKey="totalSales" 
                     stroke="#06B6D4" 
-                    fill="url(#totalSales)"
                     strokeWidth={2}
                     dot={{ fill: '#06B6D4', strokeWidth: 2, r: 4 }}
                     activeDot={{ r: 6, fill: '#06B6D4' }}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="purchaseCost" 
-                    stroke="#EF4444" 
-                    fill="url(#purchaseCost)"
-                    strokeWidth={2}
-                    dot={{ fill: '#EF4444', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: '#EF4444' }}
-                  />
-                </AreaChart>
+                </LineChart>
               </ResponsiveContainer>
             ) : (
               <div className="text-center py-8">

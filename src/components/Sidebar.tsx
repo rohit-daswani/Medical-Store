@@ -15,7 +15,18 @@ const navigation = [
       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M13 5v6h6" />
       </svg>
-    )
+    ),
+    subItems: [
+      {
+        name: 'Analytics',
+        href: '/analytics',
+        icon: (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        )
+      }
+    ]
   },
   {
     name: 'Transactions',
@@ -71,6 +82,15 @@ const navigation = [
 
 function SidebarContent() {
   const pathname = usePathname();
+  const [expandedItems, setExpandedItems] = useState<string[]>(['Dashboard']); // Dashboard expanded by default
+
+  const toggleExpanded = (itemName: string) => {
+    setExpandedItems(prev => 
+      prev.includes(itemName) 
+        ? prev.filter(name => name !== itemName)
+        : [...prev, itemName]
+    );
+  };
 
   return (
     <div className="flex h-full flex-col" style={{ backgroundColor: 'white' }}>
@@ -88,50 +108,91 @@ function SidebarContent() {
       <nav className="flex-1 px-4 py-6 space-y-2">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
+          const hasSubItems = item.subItems && item.subItems.length > 0;
+          const isExpanded = expandedItems.includes(item.name);
+          const hasActiveSubItem = hasSubItems && item.subItems?.some(subItem => pathname === subItem.href);
+
           return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors',
-                isActive 
-                  ? 'text-[#465fff]' 
-                  : 'text-black hover:text-black'
+            <div key={item.name}>
+              {/* Main Navigation Item */}
+              <div className="flex items-center">
+                <Link
+                  href={item.href}
+                  className={cn(
+                    'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors flex-1',
+                    isActive || hasActiveSubItem
+                      ? 'text-[#465fff]' 
+                      : 'text-black hover:text-black'
+                  )}
+                  style={{
+                    backgroundColor: isActive || hasActiveSubItem ? '#ecf3ff' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive && !hasActiveSubItem) {
+                      e.currentTarget.style.backgroundColor = '#f2f4f7';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive && !hasActiveSubItem) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  <span 
+                    className="mr-3 text-lg" 
+                    style={{ 
+                      color: isActive || hasActiveSubItem ? '#465fff' : 'black' 
+                    }}
+                  >
+                    {item.icon}
+                  </span>
+                  {item.name}
+                </Link>
+                
+                {/* Expand/Collapse Button for items with sub-items */}
+                {hasSubItems && (
+                  <button
+                    onClick={() => toggleExpanded(item.name)}
+                    className="p-1 rounded hover:bg-gray-100 ml-1"
+                  >
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Sub Items */}
+              {hasSubItems && isExpanded && (
+                <div className="ml-6 mt-1 space-y-1">
+                  {item.subItems?.map((subItem) => {
+                    const isSubActive = pathname === subItem.href;
+                    return (
+                      <Link
+                        key={subItem.name}
+                        href={subItem.href}
+                        className={cn(
+                          'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                          isSubActive 
+                            ? 'text-[#465fff] bg-[#ecf3ff]' 
+                            : 'text-gray-600 hover:text-black hover:bg-[#f2f4f7]'
+                        )}
+                      >
+                        <span className="mr-3">
+                          {subItem.icon}
+                        </span>
+                        {subItem.name}
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-              style={{
-                backgroundColor: isActive ? '#ecf3ff' : 'transparent',
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = '#f2f4f7';
-                  // Make icon dark on hover
-                  const icon = e.currentTarget.querySelector('span');
-                  if (icon) {
-                    icon.style.color = 'black';
-                  }
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  // Reset icon color
-                  const icon = e.currentTarget.querySelector('span');
-                  if (icon) {
-                    icon.style.color = 'black';
-                  }
-                }
-              }}
-            >
-              <span 
-                className="mr-3 text-lg" 
-                style={{ 
-                  color: isActive ? '#465fff' : 'black' 
-                }}
-              >
-                {item.icon}
-              </span>
-              {item.name}
-            </Link>
+            </div>
           );
         })}
       </nav>
