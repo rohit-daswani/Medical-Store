@@ -24,6 +24,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 export default function InventoryPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [filteredInventory, setFilteredInventory] = useState<InventoryItem[]>([]);
+  const [orderItems, setOrderItems] = useState<InventoryItem[]>([]);
+  const [orderLaterItems, setOrderLaterItems] = useState<string[]>([]);
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
@@ -131,9 +133,35 @@ export default function InventoryPage() {
     router.push('/transactions/purchase');
   };
 
-  const handleUpdateStock = (medicineId: string) => {
-    // In a real app, this would open a modal or navigate to an update page
-    toast.info('Stock update functionality would be implemented here');
+  const handleAddForOrdering = (medicineId: string) => {
+    try {
+      const item = filteredInventory.find(item => item.medicineId === medicineId);
+      if (item) {
+        // Add to order items
+        setOrderItems(prev => [...prev, item]);
+        
+        // Remove from filtered inventory
+        setFilteredInventory(prev => prev.filter(i => i.medicineId !== medicineId));
+        setInventory(prev => prev.filter(i => i.medicineId !== medicineId));
+        
+        toast.success(`${item.medicine.name} added to order list`);
+      }
+    } catch (error) {
+      toast.error('Failed to add item for ordering');
+    }
+  };
+
+  const handleOrderLater = (medicineId: string) => {
+    try {
+      const item = filteredInventory.find(item => item.medicineId === medicineId);
+      if (item) {
+        // Add to order later list
+        setOrderLaterItems(prev => [...prev, medicineId]);
+        toast.success(`${item.medicine.name} marked to order later`);
+      }
+    } catch (error) {
+      toast.error('Failed to mark item for order later');
+    }
   };
 
   const handleEditMedicine = (medicineId: string) => {
@@ -365,6 +393,11 @@ export default function InventoryPage() {
                                   Schedule H
                                 </Badge>
                               )}
+                              {orderLaterItems.includes(item.medicineId) && (
+                                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                  Order Later
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm text-gray-600">{item.medicine.manufacturer}</p>
                           </div>
@@ -426,8 +459,11 @@ export default function InventoryPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleUpdateStock(item.medicineId)}>
-                                Update Stock
+                              <DropdownMenuItem onClick={() => handleAddForOrdering(item.medicineId)}>
+                                Add for Ordering
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOrderLater(item.medicineId)}>
+                                Order Later
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditMedicine(item.medicineId)}>
                                 Edit Medicine
@@ -481,6 +517,70 @@ export default function InventoryPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Order Items Section */}
+      {orderItems.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Order Items ({orderItems.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Medicine</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Current Stock</TableHead>
+                    <TableHead>Min Stock Level</TableHead>
+                    <TableHead>Purchase Price</TableHead>
+                    <TableHead>MRP</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderItems.map((item) => (
+                    <TableRow key={item.medicineId}>
+                      <TableCell>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <p className="font-medium">{item.medicine.name}</p>
+                            {item.medicine.isScheduleH && (
+                              <Badge variant="destructive" className="text-xs">
+                                Schedule H
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">{item.medicine.manufacturer}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{item.medicine.category}</Badge>
+                      </TableCell>
+                      <TableCell className="text-gray-600">{item.medicine.supplier}</TableCell>
+                      <TableCell>
+                        <span className={`font-medium ${
+                          item.quantity === 0 ? 'text-red-600' :
+                          item.isLowStock ? 'text-orange-600' : 'text-green-600'
+                        }`}>
+                          {item.quantity}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-gray-600">{item.medicine.minStockLevel}</TableCell>
+                      <TableCell className="font-medium">
+                        {formatCurrency(item.medicine.price || 0)}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {formatCurrency(item.medicine.mrp || item.medicine.price || 0)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

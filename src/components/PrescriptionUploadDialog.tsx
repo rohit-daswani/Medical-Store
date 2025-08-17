@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface PrescriptionUploadDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function PrescriptionUploadDialog({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -89,6 +91,11 @@ export function PrescriptionUploadDialog({
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      
+      // Navigate back to sell page
+      setTimeout(() => {
+        router.push('/transactions/quick-sell');
+      }, 1000);
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Failed to upload prescription. Please try again.');

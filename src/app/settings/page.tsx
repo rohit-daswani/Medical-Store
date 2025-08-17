@@ -27,6 +27,11 @@ export default function SettingsPage() {
     lowStockThreshold: '10',
     expiryWarningDays: '30',
     
+    // GST Settings
+    govtsubsidizedGst: '5',
+    generalGst: '12',
+    foodtypeGst: '18',
+    
     // Backup Settings
     autoBackup: true,
     backupFrequency: 'daily'
@@ -206,6 +211,45 @@ export default function SettingsPage() {
                 value={settings.expiryWarningDays}
                 onChange={(e) => handleInputChange('expiryWarningDays', e.target.value)}
                 placeholder="Days before expiry to warn"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* GST Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>GST Settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="govtsubsidizedGst">Government Subsidized GST Rate (%)</Label>
+              <Input
+                id="govtsubsidizedGst"
+                type="number"
+                value={settings.govtsubsidizedGst || '5'}
+                onChange={(e) => handleInputChange('govtsubsidizedGst', e.target.value)}
+                placeholder="Enter GST rate for Paracetamol"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="generalGst">General GST Rate (%)</Label>
+              <Input
+                id="generalGst"
+                type="number"
+                value={settings.generalGst || '12'}
+                onChange={(e) => handleInputChange('generalGst', e.target.value)}
+                placeholder="Enter GST rate for Aspirin"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="foodtypeGst">Food Type GST Rate (%)</Label>
+              <Input
+                id="foodtypeGst"
+                type="number"
+                value={settings.foodtypeGst || '18'}
+                onChange={(e) => handleInputChange('foodtypeGst', e.target.value)}
+                placeholder="Enter GST rate for Vitamin D3"
               />
             </div>
           </CardContent>

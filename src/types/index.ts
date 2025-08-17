@@ -11,6 +11,20 @@ export interface Medicine {
   minStockLevel: number;
   category: string;
   manufacturer: string;
+  gstRate: number; // GST rate for this medicine (5, 12, or 18)
+  fifoLots?: MedicineLot[]; // FIFO inventory lots
+}
+
+export interface MedicineLot {
+  id: string;
+  batchNo: string;
+  expiryDate: string;
+  quantity: number;
+  purchasePrice: number;
+  purchaseDate: string;
+  supplierId: string;
+  supplierName: string;
+  gstRate: number;
 }
 
 export interface Supplier {
@@ -79,6 +93,9 @@ export interface ExpiringMedicine {
   supplier: string;
   quantity: number;
   daysToExpiry: number;
+  price?: number;
+  mrp?: number;
+  gstRate?: number;
 }
 
 export interface DashboardStats {

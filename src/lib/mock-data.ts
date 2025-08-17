@@ -13,7 +13,21 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 150,
     minStockLevel: 20,
     category: 'Analgesic',
-    manufacturer: 'Cipla Ltd'
+    manufacturer: 'Cipla Ltd',
+    gstRate: 5,
+    fifoLots: [
+      {
+        id: 'lot_1',
+        batchNo: 'PCM001',
+        expiryDate: '2025-12-31',
+        quantity: 150,
+        purchasePrice: 25.50,
+        purchaseDate: '2024-01-15T00:00:00.000Z',
+        supplierId: 'supplier_1',
+        supplierName: 'Cipla Ltd',
+        gstRate: 5
+      }
+    ]
   },
   {
     id: '2',
@@ -27,7 +41,21 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 8,
     minStockLevel: 15,
     category: 'Antibiotic',
-    manufacturer: 'Sun Pharma'
+    manufacturer: 'Sun Pharma',
+    gstRate: 12,
+    fifoLots: [
+      {
+        id: 'lot_2',
+        batchNo: 'AMX002',
+        expiryDate: '2025-06-15',
+        quantity: 8,
+        purchasePrice: 45.00,
+        purchaseDate: '2024-02-10T00:00:00.000Z',
+        supplierId: 'supplier_2',
+        supplierName: 'Sun Pharma',
+        gstRate: 12
+      }
+    ]
   },
   {
     id: '3',
@@ -41,7 +69,8 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 75,
     minStockLevel: 25,
     category: 'Antihistamine',
-    manufacturer: 'Dr. Reddy\'s'
+    manufacturer: 'Dr. Reddy\'s',
+    gstRate: 12
   },
   {
     id: '4',
@@ -55,7 +84,8 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 12,
     minStockLevel: 10,
     category: 'Antibiotic',
-    manufacturer: 'Lupin Ltd'
+    manufacturer: 'Lupin Ltd',
+    gstRate: 12
   },
   {
     id: '5',
@@ -69,7 +99,8 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 95,
     minStockLevel: 30,
     category: 'Proton Pump Inhibitor',
-    manufacturer: 'Ranbaxy'
+    manufacturer: 'Ranbaxy',
+    gstRate: 12
   },
   {
     id: '6',
@@ -83,7 +114,8 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 120,
     minStockLevel: 40,
     category: 'Antidiabetic',
-    manufacturer: 'Glenmark'
+    manufacturer: 'Glenmark',
+    gstRate: 12
   },
   {
     id: '7',
@@ -97,7 +129,8 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 5,
     minStockLevel: 20,
     category: 'NSAID',
-    manufacturer: 'Torrent Pharma'
+    manufacturer: 'Torrent Pharma',
+    gstRate: 12
   },
   {
     id: '8',
@@ -111,7 +144,8 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 45,
     minStockLevel: 15,
     category: 'Vitamin',
-    manufacturer: 'Abbott'
+    manufacturer: 'Abbott',
+    gstRate: 18
   },
   {
     id: '9',
@@ -125,7 +159,8 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 18,
     minStockLevel: 12,
     category: 'Analgesic',
-    manufacturer: 'Cadila Healthcare'
+    manufacturer: 'Cadila Healthcare',
+    gstRate: 5
   },
   {
     id: '10',
@@ -139,7 +174,8 @@ export const mockMedicines: Medicine[] = [
     stockQuantity: 200,
     minStockLevel: 50,
     category: 'Antiplatelet',
-    manufacturer: 'Bayer'
+    manufacturer: 'Bayer',
+    gstRate: 12
   }
 ];
 
@@ -349,7 +385,10 @@ export class DataStore {
         batchNo: med.batchNo,
         supplier: med.supplier,
         quantity: med.stockQuantity,
-        daysToExpiry: this.calculateDaysToExpiry(med.expiryDate)
+        daysToExpiry: this.calculateDaysToExpiry(med.expiryDate),
+        price: med.price,
+        mrp: med.mrp,
+        gstRate: med.gstRate
       }));
   }
 
@@ -430,6 +469,84 @@ export class DataStore {
     const today = new Date();
     const diffTime = expiry.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
+  // FIFO Methods for inventory management
+  static sellMedicineFromFIFO(medicineId: string, quantityToSell: number): { success: boolean; lots: any[]; message?: string } {
+    const medicine = this.getMedicineById(medicineId);
+    if (!medicine || !medicine.fifoLots) {
+      return { success: false, lots: [], message: 'Medicine not found or no FIFO lots available' };
+    }
+
+    // Sort lots by purchase date (FIFO - First In, First Out)
+    const sortedLots = [...medicine.fifoLots].sort((a, b) => 
+      new Date(a.purchaseDate).getTime() - new Date(b.purchaseDate).getTime()
+    );
+
+    let remainingQuantity = quantityToSell;
+    const usedLots: any[] = [];
+
+    for (let i = 0; i < sortedLots.length && remainingQuantity > 0; i++) {
+      const lot = sortedLots[i];
+      const quantityFromThisLot = Math.min(lot.quantity, remainingQuantity);
+      
+      usedLots.push({
+        ...lot,
+        quantityUsed: quantityFromThisLot,
+        remainingInLot: lot.quantity - quantityFromThisLot
+      });
+
+      // Update the lot quantity
+      lot.quantity -= quantityFromThisLot;
+      remainingQuantity -= quantityFromThisLot;
+
+      // Remove lot if quantity becomes 0
+      if (lot.quantity === 0) {
+        medicine.fifoLots = medicine.fifoLots.filter(l => l.id !== lot.id);
+      }
+    }
+
+    // Update total stock quantity
+    medicine.stockQuantity -= (quantityToSell - remainingQuantity);
+
+    if (remainingQuantity > 0) {
+      return { 
+        success: false, 
+        lots: usedLots, 
+        message: `Insufficient stock. Only ${quantityToSell - remainingQuantity} units available.` 
+      };
+    }
+
+    return { success: true, lots: usedLots };
+  }
+
+  static addMedicineToFIFO(medicineId: string, lot: any): boolean {
+    const medicine = this.getMedicineById(medicineId);
+    if (!medicine) return false;
+
+    if (!medicine.fifoLots) {
+      medicine.fifoLots = [];
+    }
+
+    medicine.fifoLots.push(lot);
+    medicine.stockQuantity += lot.quantity;
+    return true;
+  }
+
+  static calculateGSTBreakdown(items: any[]): { sgst: number; cgst: number; total: number } {
+    const breakdown = { sgst: 0, cgst: 0, total: 0 };
+    
+    items.forEach(item => {
+      const medicine = this.getMedicineById(item.medicineId);
+      const gstRate = medicine?.gstRate || item.gstRate || 18;
+      const itemTax = (item.totalAmount * gstRate) / 100;
+      
+      breakdown.sgst += itemTax / 2;
+      breakdown.cgst += itemTax / 2;
+      breakdown.total += itemTax;
+    });
+
+    return breakdown;
   }
 
   static getDashboardStats() {

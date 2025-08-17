@@ -7,9 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DataStore } from '@/lib/mock-data';
 import { ExpiringMedicine } from '@/types';
-import { formatDate } from '@/lib/export-utils';
+import { formatDate, formatCurrency } from '@/lib/export-utils';
+import { toast } from 'sonner';
 
 type SortField = 'name' | 'supplier' | 'expiryDate' | 'daysToExpiry';
 type SortOrder = 'asc' | 'desc';
@@ -17,10 +20,14 @@ type SortOrder = 'asc' | 'desc';
 export default function ExpiringMedicinesPage() {
   const [medicines, setMedicines] = useState<ExpiringMedicine[]>([]);
   const [filteredMedicines, setFilteredMedicines] = useState<ExpiringMedicine[]>([]);
+  const [markedForReturn, setMarkedForReturn] = useState<ExpiringMedicine[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField>('daysToExpiry');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
   const [daysFilter, setDaysFilter] = useState('30');
+  const [discountDialogOpen, setDiscountDialogOpen] = useState(false);
+  const [selectedMedicine, setSelectedMedicine] = useState<ExpiringMedicine | null>(null);
+  const [discountPercentage, setDiscountPercentage] = useState('');
 
   useEffect(() => {
     // Load expiring medicines
@@ -124,6 +131,57 @@ export default function ExpiringMedicinesPage() {
       return <Badge className="bg-yellow-500 hover:bg-yellow-600">Caution</Badge>;
     } else {
       return <Badge variant="secondary">Monitor</Badge>;
+    }
+  };
+
+  const handleMarkForReturn = (medicine: ExpiringMedicine) => {
+    try {
+      // Add to marked for return list
+      setMarkedForReturn(prev => [...prev, medicine]);
+      
+      // Remove from filtered medicines
+      setFilteredMedicines(prev => prev.filter(m => m.id !== medicine.id));
+      setMedicines(prev => prev.filter(m => m.id !== medicine.id));
+      
+      toast.success(`${medicine.name} marked for return`);
+    } catch (error) {
+      toast.error('Failed to mark medicine for return');
+    }
+  };
+
+  const handleDiscountSale = (medicine: ExpiringMedicine) => {
+    setSelectedMedicine(medicine);
+    setDiscountDialogOpen(true);
+  };
+
+  const handleDiscountSubmit = () => {
+    if (!selectedMedicine || !discountPercentage) {
+      toast.error('Please enter a valid discount percentage');
+      return;
+    }
+
+    try {
+      const discount = parseFloat(discountPercentage);
+      if (discount < 0 || discount > 100) {
+        toast.error('Discount percentage must be between 0 and 100');
+        return;
+      }
+
+      const originalPrice = selectedMedicine.mrp || selectedMedicine.price || 0;
+      const purchasePrice = selectedMedicine.price || 0;
+      const discountedPrice = originalPrice * (1 - discount / 100);
+
+      if (discountedPrice < purchasePrice) {
+        toast.error(`Warning: Discounted price (${formatCurrency(discountedPrice)}) is below purchase price (${formatCurrency(purchasePrice)})`);
+        return;
+      }
+
+      toast.success(`Discount of ${discount}% applied. New price: ${formatCurrency(discountedPrice)}`);
+      setDiscountDialogOpen(false);
+      setDiscountPercentage('');
+      setSelectedMedicine(null);
+    } catch (error) {
+      toast.error('Failed to apply discount');
     }
   };
 
@@ -311,6 +369,7 @@ export default function ExpiringMedicinesPage() {
                     </th>
                     <th className="text-left p-3">Quantity</th>
                     <th className="text-left p-3">Priority</th>
+                    <th className="text-left p-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -337,6 +396,26 @@ export default function ExpiringMedicinesPage() {
                       <td className="p-3 text-gray-600">{medicine.quantity}</td>
                       <td className="p-3">
                         {getPriorityBadge(medicine.daysToExpiry)}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkForReturn(medicine)}
+                            className="text-xs"
+                          >
+                            Mark for Return
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDiscountSale(medicine)}
+                            className="text-xs"
+                          >
+                            Discount Sale
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -395,7 +474,96 @@ export default function ExpiringMedicinesPage() {
         </Card>
       )}
 
+      {/* Marked for Return Section */}
+      {markedForReturn.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Marked for Return ({markedForReturn.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3">Medicine Name</th>
+                    <th className="text-left p-3">Supplier</th>
+                    <th className="text-left p-3">Batch No</th>
+                    <th className="text-left p-3">Expiry Date</th>
+                    <th className="text-left p-3">Quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {markedForReturn.map((medicine) => (
+                    <tr key={medicine.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3">
+                        <p className="font-medium">{medicine.name}</p>
+                      </td>
+                      <td className="p-3 text-gray-600">{medicine.supplier}</td>
+                      <td className="p-3 text-gray-600">{medicine.batchNo}</td>
+                      <td className="p-3 text-gray-600">{formatDate(medicine.expiryDate)}</td>
+                      <td className="p-3 text-gray-600">{medicine.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
+      {/* Discount Dialog */}
+      <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apply Discount Sale</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedMedicine && (
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium">{selectedMedicine.name}</h4>
+                <p className="text-sm text-gray-600">Supplier: {selectedMedicine.supplier}</p>
+                <p className="text-sm text-gray-600">Batch: {selectedMedicine.batchNo}</p>
+                <p className="text-sm text-gray-600">
+                  Original Price: {formatCurrency(selectedMedicine.mrp || selectedMedicine.price || 0)}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Purchase Price: {formatCurrency(selectedMedicine.price || 0)}
+                </p>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="discount">Discount Percentage (%)</Label>
+              <Input
+                id="discount"
+                type="number"
+                min="0"
+                max="100"
+                value={discountPercentage}
+                onChange={(e) => setDiscountPercentage(e.target.value)}
+                placeholder="Enter discount percentage"
+              />
+            </div>
+
+            {selectedMedicine && discountPercentage && (
+              <Alert>
+                <AlertDescription>
+                  New Price: {formatCurrency((selectedMedicine.mrp || selectedMedicine.price || 0) * (1 - parseFloat(discountPercentage || '0') / 100))}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setDiscountDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleDiscountSubmit}>
+                Apply Discount
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

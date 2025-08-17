@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { PrescriptionUploadDialog } from '@/components/PrescriptionUploadDialog';
 import { DataStore } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/export-utils';
 import { toast } from 'sonner';
@@ -97,15 +98,18 @@ export default function QuickSellPage() {
     toast.success('Item added to sale');
   };
 
-  const handlePrescriptionDecision = (uploadPrescription: boolean) => {
+  const handlePrescriptionUpload = (files: string[]) => {
     if (pendingScheduleHItem) {
-      if (uploadPrescription) {
-        // In a real app, you would handle file upload here
-        toast.success('Prescription requirement noted. Item added to sale.');
-      } else {
-        toast.warning('Proceeding without prescription upload.');
-      }
-      
+      toast.success('Prescription uploaded successfully. Item added to sale.');
+      addItemToCart(pendingScheduleHItem.medicine, pendingScheduleHItem.quantity);
+      setPendingScheduleHItem(null);
+      setShowPrescriptionDialog(false);
+    }
+  };
+
+  const handlePrescriptionSkip = () => {
+    if (pendingScheduleHItem) {
+      toast.warning('Proceeding without prescription upload.');
       addItemToCart(pendingScheduleHItem.medicine, pendingScheduleHItem.quantity);
       setPendingScheduleHItem(null);
       setShowPrescriptionDialog(false);
@@ -140,13 +144,27 @@ export default function QuickSellPage() {
     return items.reduce((total, item) => total + item.totalPrice, 0);
   };
 
-  const calculateTax = () => {
-    const subtotal = calculateTotal();
-    return subtotal * 0.18; // 18% GST
+const calculateTax = () => {
+    let totalSgst = 0;
+    let totalCgst = 0;
+    
+    items.forEach(item => {
+      const medicine = medicines.find(med => med.id === item.medicineId);
+      const gstRate = medicine?.gstRate || 18; // Use medicine's GST rate or default to 18%
+      const itemTotal = item.totalPrice;
+      const itemSgst = (itemTotal * (gstRate / 2)) / 100;
+      const itemCgst = (itemTotal * (gstRate / 2)) / 100;
+      
+      totalSgst += itemSgst;
+      totalCgst += itemCgst;
+    });
+    
+    return { sgst: totalSgst, cgst: totalCgst };
   };
 
-  const calculateGrandTotal = () => {
-    return calculateTotal() + calculateTax();
+const calculateGrandTotal = () => {
+    const { sgst, cgst } = calculateTax(); // Get SGST and CGST
+    return calculateTotal() + sgst + cgst; // Add SGST and CGST to the total
   };
 
   const completeSale = async () => {
@@ -178,7 +196,10 @@ export default function QuickSellPage() {
           expiryDate: item.expiryDate || ''
         })),
         totalAmount: calculateGrandTotal(),
-        gstAmount: calculateTax(),
+        gstAmount: (() => {
+          const { sgst, cgst } = calculateTax();
+          return sgst + cgst;
+        })(),
         paymentMethod
       };
 
@@ -251,6 +272,7 @@ export default function QuickSellPage() {
             <thead>
               <tr>
                 <th>Item</th>
+                <th>GST %</th>
                 <th>Batch</th>
                 <th>Qty</th>
                 <th>Rate</th>
@@ -258,21 +280,28 @@ export default function QuickSellPage() {
               </tr>
             </thead>
             <tbody>
-              ${lastInvoiceData.items.map((item: any) => `
+              ${lastInvoiceData.items.map((item: any) => {
+                const medicine = medicines.find(med => med.id === item.medicineId);
+                const gstRate = medicine?.gstRate || 18;
+                return `
                 <tr>
                   <td>${item.medicineName}${item.isScheduleH ? ' (Schedule H)' : ''}</td>
+                  <td>${gstRate}%</td>
                   <td>${item.batchNumber || '-'}</td>
                   <td>${item.quantity}</td>
                   <td>${formatCurrency(item.unitPrice)}</td>
                   <td>${formatCurrency(item.totalPrice)}</td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table>
 
           <div class="text-right">
             <p><strong>Subtotal: ${formatCurrency(lastInvoiceData.subtotal)}</strong></p>
-            <p><strong>GST (18%): ${formatCurrency(lastInvoiceData.tax)}</strong></p>
+            <p><strong>SGST: ${formatCurrency(lastInvoiceData.tax.sgst)}</strong></p>
+            <p><strong>CGST: ${formatCurrency(lastInvoiceData.tax.cgst)}</strong></p>
+            <p class="text-xs text-gray-600">GST calculated based on individual medicine rates</p>
             <p class="total-row"><strong>Total: ${formatCurrency(lastInvoiceData.grandTotal)}</strong></p>
           </div>
 
@@ -458,9 +487,21 @@ export default function QuickSellPage() {
                   <span>{formatCurrency(calculateTotal())}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Tax (18%):</span>
-                  <span>{formatCurrency(calculateTax())}</span>
+                  <span>SGST:</span>
+                  <span>{formatCurrency(calculateTax().sgst)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span>CGST:</span>
+                  <span>{formatCurrency(calculateTax().cgst)}</span>
+                </div>
+                {items.length > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    GST rates: {Array.from(new Set(items.map(item => {
+                      const medicine = medicines.find(med => med.id === item.medicineId);
+                      return medicine?.gstRate || 18;
+                    }))).join('%, ')}%
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total:</span>
                   <span>{formatCurrency(calculateGrandTotal())}</span>
@@ -481,29 +522,13 @@ export default function QuickSellPage() {
       </div>
 
       {/* Schedule H Prescription Dialog */}
-      <Dialog open={showPrescriptionDialog} onOpenChange={setShowPrescriptionDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Schedule H Drug - Prescription Required</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p>
-              <strong>{pendingScheduleHItem?.medicine?.name}</strong> is a Schedule H drug and requires a prescription.
-            </p>
-            <p className="text-sm text-gray-600">
-              Would you like to upload today's prescription or proceed without uploading?
-            </p>
-            <div className="flex space-x-3">
-              <Button onClick={() => handlePrescriptionDecision(true)}>
-                Upload Prescription
-              </Button>
-              <Button variant="outline" onClick={() => handlePrescriptionDecision(false)}>
-                Skip & Continue
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <PrescriptionUploadDialog
+        open={showPrescriptionDialog}
+        onClose={() => setShowPrescriptionDialog(false)}
+        onUpload={handlePrescriptionUpload}
+        onSkip={handlePrescriptionSkip}
+        scheduleHMedicines={pendingScheduleHItem ? [pendingScheduleHItem.medicine?.name] : []}
+      />
 
       {/* Invoice Dialog */}
       <Dialog open={showInvoice} onOpenChange={setShowInvoice}>

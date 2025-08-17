@@ -21,6 +21,7 @@ export function MultiMedicineSellForm() {
   const [showPrescriptionDialog, setShowPrescriptionDialog] = useState(false);
   const [prescriptionFiles, setPrescriptionFiles] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [discounts, setDiscounts] = useState<{ [key: number]: number }>({});
 
   const form = useForm<SellFormData>({
     resolver: zodResolver(sellFormSchema),
@@ -64,13 +65,62 @@ export function MultiMedicineSellForm() {
     }
   };
 
+  const handleDiscountChange = (index: number, discountPercentage: number) => {
+    const medicineId = watch(`items.${index}.medicineId`);
+    const medicine = DataStore.getMedicineById(medicineId);
+    
+    if (!medicine) return;
+
+    const originalPrice = medicine.mrp || medicine.price;
+    const purchasePrice = medicine.price;
+    const discountedPrice = originalPrice * (1 - discountPercentage / 100);
+
+    // Validation: Check if discounted price is below purchase price
+    if (discountedPrice < purchasePrice) {
+      toast.warning(
+        `Warning: Discounted price (${formatCurrency(discountedPrice)}) is below purchase price (${formatCurrency(purchasePrice)}). You may proceed but this will result in a loss.`,
+        { 
+          duration: 8000,
+          action: {
+            label: 'Continue Anyway',
+            onClick: () => {
+              setDiscounts(prev => ({ ...prev, [index]: discountPercentage }));
+              setValue(`items.${index}.price`, discountedPrice);
+            }
+          }
+        }
+      );
+      return;
+    }
+
+    // Apply discount if validation passes
+    setDiscounts(prev => ({ ...prev, [index]: discountPercentage }));
+    setValue(`items.${index}.price`, discountedPrice);
+    
+    toast.success(`${discountPercentage}% discount applied. New price: ${formatCurrency(discountedPrice)}`);
+  };
+
   const calculateTotal = () => {
     const items = watch('items');
     return items.reduce((total, item) => total + (item.quantity * item.price), 0);
   };
 
-  const calculateGSTAmount = (subtotal: number) => {
-    return calculateGST(subtotal, 18);
+  const calculateGSTBreakdown = (items: any[]) => {
+    let totalSgst = 0;
+    let totalCgst = 0;
+    
+    items.forEach(item => {
+      const medicine = DataStore.getMedicineById(item.medicineId);
+      const gstRate = medicine?.gstRate || 18; // Use medicine's GST rate or default to 18%
+      const itemTotal = item.totalAmount || 0;
+      const itemSgst = (itemTotal * (gstRate / 2)) / 100;
+      const itemCgst = (itemTotal * (gstRate / 2)) / 100;
+      
+      totalSgst += itemSgst;
+      totalCgst += itemCgst;
+    });
+    
+    return { sgst: totalSgst, cgst: totalCgst, total: totalSgst + totalCgst };
   };
 
   const onSubmit = async (data: SellFormData) => {
@@ -95,20 +145,33 @@ export function MultiMedicineSellForm() {
       }
 
       const subtotal = calculateTotal();
-      const gstAmount = calculateGSTAmount(subtotal);
-      const totalAmount = subtotal + gstAmount;
-
-      const transactionItems: TransactionItem[] = data.items.map(item => {
+      
+      // Use FIFO for selling medicines
+      const transactionItems: TransactionItem[] = [];
+      for (const item of data.items) {
         const medicine = DataStore.getMedicineById(item.medicineId);
-        return {
+        if (!medicine) continue;
+
+        // Use FIFO to sell from oldest lots first
+        const fifoResult = DataStore.sellMedicineFromFIFO(item.medicineId, item.quantity);
+        if (!fifoResult.success) {
+          toast.error(fifoResult.message || 'Failed to process sale');
+          setIsSubmitting(false);
+          return;
+        }
+
+        transactionItems.push({
           medicineId: item.medicineId,
-          medicineName: medicine?.name || '',
+          medicineName: medicine.name,
           quantity: item.quantity,
           price: item.price,
-          batchNo: medicine?.batchNo || '',
-          expiryDate: medicine?.expiryDate || ''
-        };
-      });
+          batchNo: fifoResult.lots[0]?.batchNo || medicine.batchNo,
+          expiryDate: fifoResult.lots[0]?.expiryDate || medicine.expiryDate
+        });
+      }
+
+      const gstBreakdown = calculateGSTBreakdown(transactionItems);
+      const totalAmount = subtotal + gstBreakdown.total;
 
       const transaction = {
         type: 'sell' as const,
@@ -118,7 +181,7 @@ export function MultiMedicineSellForm() {
         customerName: data.customerName,
         customerPhone: data.customerPhone,
         prescriptionFiles: prescriptionFiles.length > 0 ? prescriptionFiles : undefined,
-        gstAmount,
+        gstAmount: gstBreakdown.total,
         invoiceNumber: generateInvoiceNumber('sell'),
         paymentMethod: data.paymentMethod
       };
@@ -149,8 +212,12 @@ export function MultiMedicineSellForm() {
   };
 
   const subtotal = calculateTotal();
-  const gstAmount = calculateGSTAmount(subtotal);
-  const total = subtotal + gstAmount;
+  const items = watch('items');
+  const gstBreakdown = calculateGSTBreakdown(items.map(item => ({
+    medicineId: item.medicineId,
+    totalAmount: item.quantity * item.price
+  })));
+  const total = subtotal + gstBreakdown.total;
 
   return (
     <div className="space-y-6">
@@ -236,6 +303,44 @@ export function MultiMedicineSellForm() {
                 </div>
               </div>
 
+              {/* Discount Section */}
+              {watch(`items.${index}.medicineId`) && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor={`discount-${index}`}>Discount (%)</Label>
+                    <Input
+                      id={`discount-${index}`}
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={discounts[index] || ''}
+                      onChange={(e) => {
+                        const discount = parseFloat(e.target.value) || 0;
+                        if (discount >= 0 && discount <= 100) {
+                          handleDiscountChange(index, discount);
+                        }
+                      }}
+                      placeholder="Enter discount percentage"
+                    />
+                  </div>
+                  {discounts[index] && (
+                    <div className="flex items-end">
+                      <div>
+                        <Label>Discount Applied</Label>
+                        <p className="text-sm font-medium text-green-600">
+                          {discounts[index]}% off - Save {formatCurrency(
+                            (DataStore.getMedicineById(watch(`items.${index}.medicineId`))?.mrp || 0) * 
+                            (discounts[index] / 100) * 
+                            watch(`items.${index}.quantity`)
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Schedule H Warning */}
               {scheduleHMedicines.includes(watch(`items.${index}.medicineId`)) && (
                 <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
@@ -306,8 +411,12 @@ export function MultiMedicineSellForm() {
               <span>{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between">
-              <span>GST (18%):</span>
-              <span>{formatCurrency(gstAmount)}</span>
+              <span>SGST:</span>
+              <span>{formatCurrency(gstBreakdown.sgst)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>CGST:</span>
+              <span>{formatCurrency(gstBreakdown.cgst)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg border-t pt-2">
               <span>Total:</span>

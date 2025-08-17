@@ -20,13 +20,37 @@ interface PurchaseItem {
   medicine?: Medicine;
   quantity: number;
   price: number;
+  gstRate: number;
+  discountPercentage?: number;
+  priceComparison?: {
+    lastPrice: number;
+    currentPrice: number;
+    difference: number;
+    percentageChange: number;
+    isIncreased: boolean;
+  };
 }
 
 export function PurchaseForm() {
   const [selectedMedicines, setSelectedMedicines] = useState<PurchaseItem[]>([
-    { medicineId: '', quantity: 1, price: 0 }
+    { medicineId: '', quantity: 1, price: 0, gstRate: 12 }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAddMedicineDialog, setShowAddMedicineDialog] = useState(false);
+  const [newMedicine, setNewMedicine] = useState({
+    name: '',
+    manufacturer: '',
+    category: '',
+    batchNo: '',
+    expiryDate: '',
+    supplier: '',
+    isScheduleH: false,
+    price: 0,
+    mrp: 0,
+    stockQuantity: 0,
+    minStockLevel: 10,
+    gstRate: 12
+  });
 
   const form = useForm<PurchaseFormData>({
     resolver: zodResolver(purchaseFormSchema),
@@ -51,7 +75,7 @@ export function PurchaseForm() {
   });
 
   const addMedicine = () => {
-    const newItem = { medicineId: '', quantity: 1, price: 0 };
+    const newItem = { medicineId: '', quantity: 1, price: 0, gstRate: 12 };
     setSelectedMedicines([...selectedMedicines, newItem]);
     append(newItem);
   };
@@ -66,17 +90,52 @@ export function PurchaseForm() {
 
   const handleMedicineSelect = (index: number, medicine: Medicine) => {
     const updatedMedicines = [...selectedMedicines];
+    
+    // Get previous purchase data for comparison
+    const previousPurchases = DataStore.getTransactions()
+      .filter(t => t.type === 'purchase')
+      .flatMap(t => t.items)
+      .filter(item => item.medicineName === medicine.name);
+    
+    const currentPrice = medicine.price * 0.8; // Assume purchase price is 80% of selling price
+    let priceComparison: PurchaseItem['priceComparison'] = undefined;
+    
+    if (previousPurchases.length > 0) {
+      const lastPurchase = previousPurchases[previousPurchases.length - 1];
+      const priceDifference = currentPrice - lastPurchase.price;
+      const percentageChange = ((priceDifference / lastPurchase.price) * 100);
+      
+      priceComparison = {
+        lastPrice: lastPurchase.price,
+        currentPrice,
+        difference: priceDifference,
+        percentageChange,
+        isIncreased: priceDifference > 0
+      };
+    }
+    
     updatedMedicines[index] = {
       ...updatedMedicines[index],
       medicineId: medicine.id,
       medicine,
-      price: medicine.price * 0.8 // Assume purchase price is 80% of selling price
+      price: currentPrice,
+      priceComparison
     };
     setSelectedMedicines(updatedMedicines);
 
     // Update form values
     setValue(`items.${index}.medicineId`, medicine.id);
-    setValue(`items.${index}.price`, medicine.price * 0.8);
+    setValue(`items.${index}.price`, currentPrice);
+    
+    // Show price comparison notification
+    if (priceComparison) {
+      const changeText = priceComparison.isIncreased ? 'increased' : 'decreased';
+      const changeColor = priceComparison.isIncreased ? 'red' : 'green';
+      toast.info(
+        `Price ${changeText} by ${Math.abs(priceComparison.percentageChange).toFixed(1)}% from last purchase (${formatCurrency(priceComparison.lastPrice)} → ${formatCurrency(priceComparison.currentPrice)})`,
+        { duration: 5000 }
+      );
+    }
   };
 
   const handlePriceChange = (index: number, price: number) => {
@@ -99,8 +158,21 @@ export function PurchaseForm() {
     }, 0);
   };
 
-  const calculateGSTAmount = (subtotal: number) => {
-    return calculateGST(subtotal, 18);
+  const calculateGSTAmount = () => {
+    let totalSgst = 0;
+    let totalCgst = 0;
+    
+    selectedMedicines.forEach(item => {
+      const gstRate = item.gstRate || 18; // Use item's GST rate or default to 18%
+      const itemTotal = item.quantity * item.price;
+      const itemSgst = (itemTotal * (gstRate / 2)) / 100;
+      const itemCgst = (itemTotal * (gstRate / 2)) / 100;
+      
+      totalSgst += itemSgst;
+      totalCgst += itemCgst;
+    });
+    
+    return { sgst: totalSgst, cgst: totalCgst, total: totalSgst + totalCgst };
   };
 
   const onSubmit = async (data: PurchaseFormData) => {
@@ -108,8 +180,8 @@ export function PurchaseForm() {
       setIsSubmitting(true);
 
       const subtotal = calculateTotal();
-      const gstAmount = calculateGSTAmount(subtotal);
-      const totalAmount = subtotal + gstAmount;
+      const gstData = calculateGSTAmount();
+      const totalAmount = subtotal + gstData.total;
 
       const transactionItems: TransactionItem[] = selectedMedicines.map(item => ({
         medicineId: item.medicineId,
@@ -125,7 +197,7 @@ export function PurchaseForm() {
         items: transactionItems,
         totalAmount,
         date: new Date().toISOString(),
-        gstAmount,
+        gstAmount: gstData.total,
         invoiceNumber: data.invoiceNumber,
         paymentMethod: data.paymentMethod
       };
@@ -137,7 +209,7 @@ export function PurchaseForm() {
       
       // Reset form
       reset();
-      setSelectedMedicines([{ medicineId: '', quantity: 1, price: 0 }]);
+      setSelectedMedicines([{ medicineId: '', quantity: 1, price: 0, gstRate: 12 }]);
 
     } catch (error) {
       console.error('Error processing purchase:', error);
@@ -148,8 +220,8 @@ export function PurchaseForm() {
   };
 
   const subtotal = calculateTotal();
-  const gstAmount = calculateGSTAmount(subtotal);
-  const total = subtotal + gstAmount;
+  const gstData = calculateGSTAmount();
+  const total = subtotal + gstData.total;
 
   return (
     <div className="space-y-6">
@@ -191,7 +263,7 @@ export function PurchaseForm() {
 
           {selectedMedicines.map((item, index) => (
             <Card key={index} className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                 <div className="md:col-span-2">
                   <Label>Medicine</Label>
                   <MedicineSearch
@@ -244,6 +316,27 @@ export function PurchaseForm() {
                   )}
                 </div>
 
+                <div>
+                  <Label htmlFor={`gst-${index}`}>GST Rate (%)</Label>
+                  <Select 
+                    value={item.gstRate.toString()} 
+                    onValueChange={(value) => {
+                      const updatedMedicines = [...selectedMedicines];
+                      updatedMedicines[index].gstRate = parseInt(value);
+                      setSelectedMedicines(updatedMedicines);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5%</SelectItem>
+                      <SelectItem value="12">12%</SelectItem>
+                      <SelectItem value="18">18%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="flex items-end space-x-2">
                   <div className="flex-1">
                     <Label>Total</Label>
@@ -263,6 +356,38 @@ export function PurchaseForm() {
                     </Button>
                   )}
                 </div>
+              </div>
+
+              {/* Discount and Price Validation */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <Label htmlFor={`discount-${index}`}>Discount (%)</Label>
+                  <Input
+                    id={`discount-${index}`}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={item.discountPercentage || ''}
+                    onChange={(e) => {
+                      const discount = parseFloat(e.target.value) || 0;
+                      const updatedMedicines = [...selectedMedicines];
+                      updatedMedicines[index].discountPercentage = discount;
+                      setSelectedMedicines(updatedMedicines);
+                    }}
+                    placeholder="Enter discount percentage"
+                  />
+                </div>
+                {item.discountPercentage && item.discountPercentage > 0 && (
+                  <div className="flex items-end">
+                    <div>
+                      <Label>Discounted Price</Label>
+                      <p className="text-sm font-medium">
+                        {formatCurrency(item.price * (1 - (item.discountPercentage || 0) / 100))}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Medicine Info */}
@@ -286,6 +411,26 @@ export function PurchaseForm() {
                       <p className="font-medium">{formatCurrency(item.medicine.price)}</p>
                     </div>
                   </div>
+                  
+                  {/* Price Comparison */}
+                  {item.priceComparison && (
+                    <div className="mt-3 p-2 border rounded-lg bg-white">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Price Comparison:</span>
+                        <div className={`text-sm font-medium ${
+                          item.priceComparison.isIncreased ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          {item.priceComparison.isIncreased ? '↑' : '↓'} {Math.abs(item.priceComparison.percentageChange).toFixed(1)}%
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-600 mt-1">
+                        Last: {formatCurrency(item.priceComparison.lastPrice)} → Current: {formatCurrency(item.priceComparison.currentPrice)}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {item.priceComparison.isIncreased ? 'Price increased' : 'Better discount received'} by {formatCurrency(Math.abs(item.priceComparison.difference))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>
@@ -321,8 +466,12 @@ export function PurchaseForm() {
               <span>{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between">
-              <span>GST (18%):</span>
-              <span>{formatCurrency(gstAmount)}</span>
+              <span>SGST (9%):</span>
+              <span>{formatCurrency(gstData.sgst)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>CGST (9%):</span>
+              <span>{formatCurrency(gstData.cgst)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg border-t pt-2">
               <span>Total:</span>

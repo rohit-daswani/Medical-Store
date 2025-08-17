@@ -51,6 +51,7 @@ const APP_FIELDS = [
 export default function BulkUploadPage() {
   const [uploadStep, setUploadStep] = useState<'upload' | 'mapping' | 'preview' | 'processing'>('upload');
   const [file, setFile] = useState<File | null>(null);
+  const [fileType, setFileType] = useState<'csv' | 'image' | 'pdf' | null>(null);
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [fieldMapping, setFieldMapping] = useState<FieldMapping>({});
@@ -63,16 +64,101 @@ export default function BulkUploadPage() {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
 
-    const fileType = selectedFile.type;
+    const fileTypeFromMime = selectedFile.type;
     const fileName = selectedFile.name.toLowerCase();
 
-    if (!fileName.endsWith('.csv') && fileType !== 'text/csv') {
-      toast.error('Please upload a CSV file');
+    // Determine file type
+    let detectedFileType: 'csv' | 'image' | 'pdf' | null = null;
+    
+    if (fileName.endsWith('.csv') || fileTypeFromMime === 'text/csv') {
+      detectedFileType = 'csv';
+    } else if (fileTypeFromMime.startsWith('image/') || fileName.match(/\.(jpg|jpeg|png|gif|bmp)$/)) {
+      detectedFileType = 'image';
+    } else if (fileTypeFromMime === 'application/pdf' || fileName.endsWith('.pdf')) {
+      detectedFileType = 'pdf';
+    } else {
+      toast.error('Please upload a CSV, PDF, or image file (JPG, PNG, GIF, BMP)');
       return;
     }
 
     setFile(selectedFile);
-    parseCSV(selectedFile);
+    setFileType(detectedFileType);
+
+    if (detectedFileType === 'csv') {
+      parseCSV(selectedFile);
+    } else {
+      // For images and PDFs, we'll use AI/OCR to extract data
+      processNonCSVFile(selectedFile, detectedFileType);
+    }
+  };
+
+  const processNonCSVFile = async (file: File, type: 'image' | 'pdf') => {
+    toast.info(`Processing ${type} file with Google Cloud Vision... This may take a moment.`);
+    
+    try {
+      // Convert file to base64 for processing
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result);
+        };
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      });
+
+      // Call our OCR API endpoint
+      const response = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          base64File: base64,
+          fileType: type
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP error! status: ${response.status}`);
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to extract data from file');
+      }
+
+      // Check if we have valid data
+      if (!result.data || result.data.length === 0) {
+        throw new Error('No medicine data found in the file. Please ensure the file contains a table or list of medicines.');
+      }
+
+      // Set the headers and data from the OCR result
+      console.log('OCR Result:', result);
+      console.log('Headers extracted:', result.headers);
+      console.log('Data extracted:', result.data);
+      
+      setCsvHeaders(result.headers);
+      setCsvData(result.data);
+      setUploadStep('mapping');
+      
+      toast.success(result.message || `Successfully extracted data from ${type} file! Found ${result.data.length} medicines with ${result.headers.length} columns.`);
+    } catch (error) {
+      console.error('File processing error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      // Provide helpful error messages
+      if (errorMessage.includes('No text detected')) {
+        toast.error(`No readable text found in the ${type} file. Please ensure the file contains clear, readable text.`);
+      } else if (errorMessage.includes('No medicine data found')) {
+        toast.error('No medicine data detected. Please ensure your file contains a table or list with medicine information.');
+      } else if (errorMessage.includes('credentials')) {
+        toast.error('OCR service configuration error. Please contact support.');
+      } else {
+        toast.error(`Failed to process ${type} file: ${errorMessage}. Please try again or use a CSV file.`);
+      }
+    }
   };
 
   const parseCSV = (file: File) => {
@@ -273,6 +359,36 @@ export default function BulkUploadPage() {
       // Load existing inventory data
       const existingInventory = JSON.parse(localStorage.getItem('bulkUploadedMedicines') || '[]');
       
+      // Extract unique suppliers from parsed data
+      const newSuppliers = new Set<string>();
+      parsedData.forEach(medicine => {
+        if (medicine.supplier && medicine.supplier !== 'Unknown Supplier') {
+          newSuppliers.add(medicine.supplier);
+        }
+      });
+
+      // Load existing suppliers
+      const existingSuppliers = JSON.parse(localStorage.getItem('suppliers') || '[]');
+      const existingSupplierNames = new Set(existingSuppliers.map((s: any) => s.name));
+
+      // Add new suppliers that don't exist
+      const suppliersToAdd = Array.from(newSuppliers).filter(name => !existingSupplierNames.has(name));
+      const newSupplierEntries = suppliersToAdd.map(name => ({
+        id: `supplier_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name,
+        address: 'Address to be updated',
+        contactNumber: 'Contact to be updated',
+        gstinNumber: '',
+        createdAt: new Date().toISOString()
+      }));
+
+      // Save updated suppliers list
+      if (newSupplierEntries.length > 0) {
+        const updatedSuppliers = [...existingSuppliers, ...newSupplierEntries];
+        localStorage.setItem('suppliers', JSON.stringify(updatedSuppliers));
+        toast.info(`Added ${newSupplierEntries.length} new suppliers: ${suppliersToAdd.join(', ')}`);
+      }
+      
       // Convert parsed data to medicine format
       const newMedicines = parsedData.map(medicine => ({
         id: `bulk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -286,7 +402,8 @@ export default function BulkUploadPage() {
         stockQuantity: medicine.quantity,
         minStockLevel: medicine.minStockLevel,
         category: medicine.category,
-        manufacturer: medicine.manufacturer
+        manufacturer: medicine.manufacturer,
+        gstRate: 12 // Default GST rate
       }));
 
       // Simulate upload process with progress
@@ -378,23 +495,26 @@ export default function BulkUploadPage() {
       {uploadStep === 'upload' && (
         <Card>
           <CardHeader>
-            <CardTitle>Upload CSV File</CardTitle>
+            <CardTitle>Upload File</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert>
               <AlertDescription>
-                Upload a CSV file containing your medicine inventory data. The file should include columns for medicine name, manufacturer, category, batch number, expiry date, quantity, and prices.
+                Upload your medicine inventory data using CSV files, PDF documents, or images. For CSV files, ensure they include columns for medicine name, manufacturer, category, batch number, expiry date, quantity, and prices. For PDF/image files, Google Cloud Vision AI will extract the data automatically from tables and text.
               </AlertDescription>
             </Alert>
 
             <div className="space-y-2">
-              <Label>Select CSV File</Label>
+              <Label>Select File (CSV, PDF, or Image)</Label>
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.pdf,.jpg,.jpeg,.png,.gif,.bmp,text/csv,application/pdf,image/*"
                 onChange={handleFileUpload}
               />
+              <p className="text-xs text-gray-500">
+                Supported formats: CSV files, PDF documents, or images (JPG, PNG, GIF, BMP)
+              </p>
             </div>
 
             {file && (
@@ -436,7 +556,7 @@ export default function BulkUploadPage() {
           <CardContent className="space-y-4">
             <Alert>
               <AlertDescription>
-                Map the columns from your CSV file to the corresponding fields in the application. Required fields must be mapped.
+                Map the columns from your uploaded file to the corresponding fields in the application. Required fields must be mapped.
               </AlertDescription>
             </Alert>
 
