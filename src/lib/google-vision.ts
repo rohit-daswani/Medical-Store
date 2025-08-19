@@ -214,7 +214,7 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
       const skipKeywords = ['total', 'subtotal', 'discount', 'tax', 'amount', 'bank', 'details', 'terms', 'conditions', 'page', 'advance', 'payment'];
       const shouldSkip = skipKeywords.some(keyword => lineText.includes(keyword)) && !lineText.includes('belladonna');
       
-      if (columns.length >= 2 && !shouldSkip) {
+      if (columns.length >= 1 && !shouldSkip) {
         const row: ExtractedData = {};
         headers.forEach((header, index) => {
           row[header] = columns[index] || '';
@@ -222,7 +222,7 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
         
         // Only add if we have meaningful data in the first column
         const firstColumnData = row[headers[0]]?.trim();
-        if (firstColumnData && firstColumnData.length > 0 && !firstColumnData.match(/^\d+$/)) {
+        if (firstColumnData && firstColumnData.length > 0 && firstColumnData.match(/^\d+$/)) {
           data.push(row);
           console.log('Added row:', row);
         }
