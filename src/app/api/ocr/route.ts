@@ -39,12 +39,22 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('OCR API Error:', error);
+    
+    // Check if it's a Google Cloud Vision configuration error
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    const isConfigError = errorMessage.includes('Google Cloud Vision API is not properly configured');
+    
     return NextResponse.json(
       { 
-        error: error instanceof Error ? error.message : 'Internal server error',
-        details: 'Failed to process OCR request'
+        error: isConfigError 
+          ? 'OCR service is currently unavailable. Please contact the administrator to configure Google Cloud Vision API credentials.'
+          : errorMessage,
+        details: isConfigError 
+          ? 'The required environment variables for Google Cloud Vision API are missing or invalid.'
+          : 'Failed to process OCR request',
+        configurationRequired: isConfigError
       },
-      { status: 500 }
+      { status: isConfigError ? 503 : 500 }
     );
   }
 }

@@ -1,13 +1,31 @@
 import { ImageAnnotatorClient } from '@google-cloud/vision';
 
-// Initialize Google Cloud Vision client
-const vision = new ImageAnnotatorClient({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-  credentials: {
-    client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-  },
-});
+// Check if all required environment variables are present
+const hasValidCredentials = () => {
+  return !!(
+    process.env.GOOGLE_CLOUD_PROJECT_ID &&
+    process.env.GOOGLE_CLOUD_CLIENT_EMAIL &&
+    process.env.GOOGLE_CLOUD_PRIVATE_KEY
+  );
+};
+
+// Initialize Google Cloud Vision client only if credentials are available
+let vision: ImageAnnotatorClient | null = null;
+
+if (hasValidCredentials()) {
+  try {
+    vision = new ImageAnnotatorClient({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      credentials: {
+        client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+        private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to initialize Google Cloud Vision client:', error);
+    vision = null;
+  }
+}
 
 export interface ExtractedData {
   [key: string]: string;
@@ -25,6 +43,11 @@ export interface OCRResult {
  */
 export async function extractTextFromImage(base64Image: string): Promise<string> {
   try {
+    // Check if Google Vision client is available
+    if (!vision) {
+      throw new Error('Google Cloud Vision API is not properly configured. Please check your environment variables: GOOGLE_CLOUD_PROJECT_ID, GOOGLE_CLOUD_CLIENT_EMAIL, and GOOGLE_CLOUD_PRIVATE_KEY');
+    }
+
     // Remove data URL prefix if present
     const imageBuffer = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
     
@@ -52,6 +75,11 @@ export async function extractTextFromImage(base64Image: string): Promise<string>
  */
 export async function extractTextFromPDF(base64PDF: string): Promise<string> {
   try {
+    // Check if Google Vision client is available
+    if (!vision) {
+      throw new Error('Google Cloud Vision API is not properly configured. Please check your environment variables: GOOGLE_CLOUD_PROJECT_ID, GOOGLE_CLOUD_CLIENT_EMAIL, and GOOGLE_CLOUD_PRIVATE_KEY');
+    }
+
     // Remove data URL prefix if present
     const pdfBuffer = base64PDF.replace(/^data:application\/pdf;base64,/, '');
     
