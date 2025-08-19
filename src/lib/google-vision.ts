@@ -142,11 +142,10 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
         line.includes(keyword)
       ).length;
       
+      if (headerMatches >= 2 && columns.length >= 4) {
       console.log(`Line ${i} header matches:`, headerMatches, 'Keywords found:', tableHeaderKeywords.filter(keyword => line.includes(keyword)));
       
-      // Special check for the exact header pattern we see in the logs
       
-      // If we find a line with multiple header keywords and multiple columns, it's likely the header
         headerLineIndex = i;
         headers = columns;
         console.log('Found header line at index:', i, 'Headers:', headers);
