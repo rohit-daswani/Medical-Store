@@ -130,17 +130,25 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
     ];
 
     // Find the line that looks most like table headers
-    for (let i = 0; i < Math.min(lines.length, 20); i++) {
+    for (let i = 0; i < Math.min(lines.length, 50); i++) {
       const line = lines[i].toLowerCase();
-      const columns = parseLineIntoColumns(lines[i]);
+      const originalLine = lines[i];
+      const columns = parseLineIntoColumns(originalLine);
+      
+      console.log(`Line ${i}: "${originalLine}" -> Columns:`, columns);
       
       // Check if this line contains multiple table header keywords
       const headerMatches = tableHeaderKeywords.filter(keyword => 
         line.includes(keyword)
       ).length;
       
+      console.log(`Line ${i} header matches:`, headerMatches, 'Keywords found:', tableHeaderKeywords.filter(keyword => line.includes(keyword)));
+      
+      // Special check for the exact header pattern we see in the logs
+      const isExactHeaderPattern = line.includes('hsn code') && line.includes('description') && line.includes('pack') && line.includes('mfr');
+      
       // If we find a line with multiple header keywords and multiple columns, it's likely the header
-      if (headerMatches >= 3 && columns.length >= 4) {
+      if ((headerMatches >= 3 && columns.length >= 4) || isExactHeaderPattern) {
         headerLineIndex = i;
         headers = columns;
         console.log('Found header line at index:', i, 'Headers:', headers);
