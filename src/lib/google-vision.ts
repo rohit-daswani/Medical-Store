@@ -126,7 +126,7 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
     const tableHeaderKeywords = [
       'hsn', 'code', 'description', 'pack', 'mfr', 'batch', 'exp', 'qty', 'quantity', 
       'free', 'mrp', 'rate', 'price', 'disc', 'cgst', 'sgst', 'igst', 'amount',
-      'medicine', 'name', 'manufacturer', 'expiry', 'gst'
+      'medicine', 'name', 'manufacturer', 'expiry', 'gst', 'dt', 'no'
     ];
 
     // Find the line that looks most like table headers
@@ -148,7 +148,7 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
       const isExactHeaderPattern = line.includes('hsn code') && line.includes('description') && line.includes('pack') && line.includes('mfr');
       
       // If we find a line with multiple header keywords and multiple columns, it's likely the header
-      if ((headerMatches >= 3 && columns.length >= 4) || isExactHeaderPattern) {
+      if ((headerMatches >= 2 && columns.length >= 4) || isExactHeaderPattern) {
         headerLineIndex = i;
         headers = columns;
         console.log('Found header line at index:', i, 'Headers:', headers);
