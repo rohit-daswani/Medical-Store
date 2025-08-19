@@ -145,10 +145,8 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
       console.log(`Line ${i} header matches:`, headerMatches, 'Keywords found:', tableHeaderKeywords.filter(keyword => line.includes(keyword)));
       
       // Special check for the exact header pattern we see in the logs
-      const isExactHeaderPattern = (line.includes('hsn code') && line.includes('description') && line.includes('pack') && line.includes('mfr')) || line.startsWith('hsn');
       
       // If we find a line with multiple header keywords and multiple columns, it's likely the header
-      if ((headerMatches >= 1 && columns.length >= 6) || isExactHeaderPattern) {
         headerLineIndex = i;
         headers = columns;
         console.log('Found header line at index:', i, 'Headers:', headers);
