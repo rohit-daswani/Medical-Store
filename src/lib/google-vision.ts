@@ -118,23 +118,37 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
       };
     }
 
+    // Look for table headers more intelligently
+    let headerLineIndex = -1;
+    let headers: string[] = [];
+    
     // Common pharmacy invoice/table headers to look for
     const tableHeaderKeywords = [
       'hsn', 'code', 'description', 'pack', 'mfr', 'batch', 'exp', 'qty', 'quantity', 
       'free', 'mrp', 'rate', 'price', 'disc', 'cgst', 'sgst', 'igst', 'amount',
-      'medicine', 'name', 'manufacturer', 'expiry', 'gst'
+      'medicine', 'name', 'manufacturer', 'expiry', 'gst', 'dt', 'no'
     ];
 
     // Find the line that looks most like table headers
-    let headerLineIndex = -1;
-    let headers: string[] = [];
-    
-    for (let i = 0; i < Math.min(lines.length, 35); i++) {
+    for (let i = 0; i < Math.min(lines.length, 50); i++) {
       const line = lines[i].toLowerCase();
-      const columns = parseLineIntoColumns(lines[i]);
-      const headerMatches = tableHeaderKeywords.filter(keyword => line.includes(keyword)).length;
+      const originalLine = lines[i];
+      const columns = parseLineIntoColumns(originalLine);
       
-      if (headerMatches >= 2 && columns.length >= 4) {
+      console.log(`Line ${i}: "${originalLine}" -> Columns:`, columns);
+      
+      // Check if this line contains multiple table header keywords
+      const headerMatches = tableHeaderKeywords.filter(keyword => 
+        line.includes(keyword)
+      ).length;
+      
+      console.log(`Line ${i} header matches:`, headerMatches, 'Keywords found:', tableHeaderKeywords.filter(keyword => line.includes(keyword)));
+      
+      // Special check for the exact header pattern we see in the logs
+      const isExactHeaderPattern = (line.includes('hsn code') && line.includes('description') && line.includes('pack') && line.includes('mfr')) || line.startsWith('hsn');
+      
+      // If we find a line with multiple header keywords and multiple columns, it's likely the header
+      if ((headerMatches >= 1 && columns.length >= 6) || isExactHeaderPattern) {
         headerLineIndex = i;
         headers = columns;
         console.log('Found header line at index:', i, 'Headers:', headers);
@@ -247,14 +261,81 @@ export function parseExtractedText(text: string, fileType: 'image' | 'pdf'): OCR
  * Parse a line of text into columns (handles various separators)
  */
 function parseLineIntoColumns(line: string): string[] {
-  // Replace 2+ spaces with a tab, then split by tab
-  let cleanLine = line.trim().replace(/ {2,}/g, '\\t');
-  const cols = cleanLine.split('\\t').map(f => f.trim()).filter(Boolean);
-  if (cols.length > 1) return cols;
-  // Try splitting by comma or pipe
-  return cleanLine.split(/[|,]/).map(f => f.trim()).filter(Boolean).length > 1 
-    ? cleanLine.split(/[|,]/).map(f => f.trim()).filter(Boolean) 
-    : [cleanLine];
+  // Clean the line first
+  const cleanLine = line.trim();
+  
+  // Try different separators in order of preference
+  const separators = ['\t', '|'];
+  
+  for (const separator of separators) {
+    const columns = cleanLine.split(separator).map(col => col.trim()).filter(col => col.length > 0);
+    if (columns.length > 1) {
+      return columns;
+    }
+  }
+  
+  // For pharmacy invoices, try to split by multiple spaces (common in table layouts)
+  // This handles cases where columns are separated by multiple spaces
+  let spaceColumns = cleanLine.split(/\s{3,}/).map(col => col.trim()).filter(col => col.length > 0);
+  if (spaceColumns.length > 1) {
+    return spaceColumns;
+  }
+  
+  // Try splitting by 2 or more spaces
+  spaceColumns = cleanLine.split(/\s{2,}/).map(col => col.trim()).filter(col => col.length > 0);
+  if (spaceColumns.length > 1) {
+    return spaceColumns;
+  }
+  
+  // For structured data like "12345678 Belladonna 30 100 ml WS 025488", 
+  // try to split intelligently by looking for patterns
+  const words = cleanLine.split(/\s+/);
+  if (words.length >= 4) {
+    // Try to group words that belong together
+    const columns: string[] = [];
+    let currentColumn = '';
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      
+      // If it's a number and we have a current column, start a new column
+      if (/^\d+$/.test(word) && currentColumn.trim()) {
+        columns.push(currentColumn.trim());
+        currentColumn = word;
+      }
+      // If it's a date-like pattern (like "10-2025"), start new column
+      else if (/^\d{1,2}-\d{4}$/.test(word) && currentColumn.trim()) {
+        columns.push(currentColumn.trim());
+        currentColumn = word;
+      }
+      // If it's a decimal number and we have content, start new column
+      else if (/^\d+\.\d+$/.test(word) && currentColumn.trim()) {
+        columns.push(currentColumn.trim());
+        currentColumn = word;
+      }
+      else {
+        currentColumn += (currentColumn ? ' ' : '') + word;
+      }
+    }
+    
+    // Add the last column
+    if (currentColumn.trim()) {
+      columns.push(currentColumn.trim());
+    }
+    
+    if (columns.length > 1) {
+      return columns;
+    }
+  }
+  
+  // Try comma separation as last resort
+  const commaColumns = cleanLine.split(',').map(col => col.trim()).filter(col => col.length > 0);
+  if (commaColumns.length > 1) {
+    return commaColumns;
+  }
+  
+  // Fallback: return the whole line as a single column
+  return [cleanLine];
 }
 
 /**
