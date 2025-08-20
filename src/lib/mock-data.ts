@@ -179,31 +179,56 @@ export const mockMedicines: Medicine[] = [
   }
 ];
 
-// Generate comprehensive transaction data for 12 months showing profit/loss patterns
+// Generate dynamic monthly scenarios from Jan 2024 to current month with significant profits
+const generateMonthlyScenarios = (): { month: number; year: number; scenario: string; salesMultiplier: number; purchaseMultiplier: number }[] => {
+  const scenarios = [];
+  // Set start date: Jan 2024
+  const startYear = 2024;
+  const startMonth = 0; // January is 0
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth(); // current month in zero-based indexing
+
+  let year = startYear;
+  let month = startMonth;
+  
+  while (year < currentYear || (year === currentYear && month <= currentMonth)) {
+    // Create varied profit scenarios with different multipliers for realistic data
+    let salesMultiplier, purchaseMultiplier;
+    
+    // Add some variation while ensuring profit
+    const variation = Math.random() * 0.3; // 0 to 0.3 variation
+    salesMultiplier = 1.4 + variation; // 1.4 to 1.7 range
+    purchaseMultiplier = 0.7 + (variation * 0.5); // 0.7 to 0.85 range
+    
+    scenarios.push({
+      month,
+      year,
+      scenario: 'profit',
+      salesMultiplier,
+      purchaseMultiplier
+    });
+
+    // Move to next month
+    month++;
+    if (month > 11) {
+      month = 0;
+      year++;
+    }
+  }
+  
+  return scenarios;
+};
+
+// Generate comprehensive transaction data from Jan 2024 to current date showing significant profits
 const generateTransactions = (): Transaction[] => {
   const transactions: Transaction[] = [];
   let transactionId = 1;
   let invoiceId = 1;
   let purchaseInvoiceId = 1;
 
-  // Define profit/loss scenarios by month
-  const monthlyScenarios = [
-    // 2024 Data
-    { month: 0, year: 2024, scenario: 'loss', salesMultiplier: 0.7, purchaseMultiplier: 1.2 }, // Jan 2024 - Loss
-    { month: 1, year: 2024, scenario: 'breakeven', salesMultiplier: 1.0, purchaseMultiplier: 1.0 }, // Feb 2024 - Break-even
-    { month: 2, year: 2024, scenario: 'loss', salesMultiplier: 0.8, purchaseMultiplier: 1.1 }, // Mar 2024 - Loss
-    { month: 3, year: 2024, scenario: 'profit', salesMultiplier: 1.4, purchaseMultiplier: 0.9 }, // Apr 2024 - High Profit
-    { month: 4, year: 2024, scenario: 'profit', salesMultiplier: 1.2, purchaseMultiplier: 0.95 }, // May 2024 - Profit
-    { month: 5, year: 2024, scenario: 'loss', salesMultiplier: 0.6, purchaseMultiplier: 1.3 }, // Jun 2024 - Loss
-    { month: 6, year: 2024, scenario: 'profit', salesMultiplier: 1.3, purchaseMultiplier: 0.9 }, // Jul 2024 - Profit
-    { month: 7, year: 2024, scenario: 'profit', salesMultiplier: 1.5, purchaseMultiplier: 0.8 }, // Aug 2024 - High Profit
-    { month: 8, year: 2024, scenario: 'breakeven', salesMultiplier: 1.0, purchaseMultiplier: 1.0 }, // Sep 2024 - Break-even
-    { month: 9, year: 2024, scenario: 'loss', salesMultiplier: 0.75, purchaseMultiplier: 1.15 }, // Oct 2024 - Loss
-    { month: 10, year: 2024, scenario: 'profit', salesMultiplier: 1.25, purchaseMultiplier: 0.95 }, // Nov 2024 - Profit
-    { month: 11, year: 2024, scenario: 'profit', salesMultiplier: 1.6, purchaseMultiplier: 0.85 }, // Dec 2024 - High Profit
-    // 2025 Data (Current month)
-    { month: 0, year: 2025, scenario: 'profit', salesMultiplier: 1.3, purchaseMultiplier: 0.9 }, // Jan 2025 - Profit
-  ];
+  // Use dynamic scenarios from Jan 2024 to current month
+  const monthlyScenarios = generateMonthlyScenarios();
 
   monthlyScenarios.forEach(({ month, year, scenario, salesMultiplier, purchaseMultiplier }) => {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -218,7 +243,7 @@ const generateTransactions = (): Transaction[] => {
       const date = new Date(year, month, day, hour, minute);
       const medicineIndex = Math.floor(Math.random() * mockMedicines.length);
       const medicine = mockMedicines[medicineIndex];
-      const quantity = Math.floor(Math.random() * 20) + 1;
+      const quantity = Math.floor(Math.random() * 30) + 1;
       
       // Calculate selling price based on scenario
       const baseSellingPrice = medicine.mrp;
@@ -248,7 +273,7 @@ const generateTransactions = (): Transaction[] => {
     }
 
     // Generate 8-15 purchase transactions per month
-    const purchaseCount = Math.floor(Math.random() * 8) + 8;
+    const purchaseCount = Math.floor(Math.random() * 8) + 4;
     for (let i = 0; i < purchaseCount; i++) {
       const day = Math.floor(Math.random() * daysInMonth) + 1;
       const hour = Math.floor(Math.random() * 8) + 9; // 9 AM to 5 PM
