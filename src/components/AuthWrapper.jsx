@@ -1,13 +1,11 @@
-'use client';
+
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
-interface AuthWrapperProps {
-  children: React.ReactNode;
-}
 
-export function AuthWrapper({ children }: AuthWrapperProps) {
+
+export function AuthWrapper({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const router = useRouter();
   const pathname = usePathname();

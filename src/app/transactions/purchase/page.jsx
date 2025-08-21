@@ -1,4 +1,4 @@
-'use client';
+
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,35 +15,16 @@ import { formatCurrency } from '@/lib/export-utils';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
-interface NewMedicine {
-  name: string;
-  manufacturer: string;
-  category: string;
-  isScheduleH: boolean;
-  minStockLevel: number;
-}
 
-interface PurchaseItem {
-  medicineId?: string;
-  medicineName: string;
-  isNewMedicine: boolean;
-  newMedicineData?: NewMedicine;
-  quantity: number;
-  unitPrice: number;
-  mrp: number;
-  totalPrice: number;
-  batchNumber: string;
-  expiryDate: string;
-  manufacturer: string;
-  gstRate: number;
-}
+
+
 
 export default function PurchaseStockPage() {
   const router = useRouter();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [suppliers, setSuppliers] = useState([]);
+  const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [supplierName, setSupplierName] = useState('');
-  const [supplierSuggestions, setSupplierSuggestions] = useState<Supplier[]>([]);
+  const [supplierSuggestions, setSupplierSuggestions] = useState([]);
   const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false);
   
   // New supplier fields
@@ -54,19 +35,19 @@ export default function PurchaseStockPage() {
   });
 
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'upi'>('cash');
-  const [items, setItems] = useState<PurchaseItem[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [items, setItems] = useState([]);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Medicine selection states
   const [medicineSearchTerm, setMedicineSearchTerm] = useState('');
-  const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
+  const [selectedMedicine, setSelectedMedicine] = useState(null);
   const [showMedicineSuggestions, setShowMedicineSuggestions] = useState(false);
   const [isAddingNewMedicine, setIsAddingNewMedicine] = useState(false);
 
   // Current item being added
-  const [currentItem, setCurrentItem] = useState<Partial<PurchaseItem>>({
+  const [currentItem, setCurrentItem] = useState({
     quantity: 1,
     unitPrice: 0,
     mrp: 0,
@@ -76,7 +57,7 @@ export default function PurchaseStockPage() {
     isNewMedicine: false
   });
 
-  const [newMedicineData, setNewMedicineData] = useState<NewMedicine>({
+  const [newMedicineData, setNewMedicineData] = useState({
     name: '',
     manufacturer: '',
     category: '',
@@ -117,7 +98,7 @@ export default function PurchaseStockPage() {
     }
   }, [medicineSearchTerm, isAddingNewMedicine]);
 
-  const selectSupplier = (supplier: Supplier) => {
+  const selectSupplier = (supplier) => {
     setSelectedSupplier(supplier);
     setSupplierName(supplier.name);
     setNewSupplierData({
@@ -128,7 +109,7 @@ export default function PurchaseStockPage() {
     setShowSupplierSuggestions(false);
   };
 
-  const selectMedicine = (medicine: Medicine) => {
+  const selectMedicine = (medicine) => {
     setSelectedMedicine(medicine);
     setMedicineSearchTerm(medicine.name);
     setCurrentItem(prev => ({
@@ -181,19 +162,19 @@ export default function PurchaseStockPage() {
       return;
     }
 
-    const newItem: PurchaseItem = {
+  const newItem = {
       medicineId: isAddingNewMedicine ? undefined : selectedMedicine?.id,
-      medicineName: isAddingNewMedicine ? newMedicineData.name : selectedMedicine!.name,
+  medicineName: isAddingNewMedicine ? newMedicineData.name : (selectedMedicine ? selectedMedicine.name : ''),
       isNewMedicine: isAddingNewMedicine,
       newMedicineData: isAddingNewMedicine ? { ...newMedicineData } : undefined,
-      quantity: currentItem.quantity!,
-      unitPrice: currentItem.unitPrice!,
-      mrp: currentItem.mrp!,
-      totalPrice: currentItem.quantity! * currentItem.unitPrice!,
-      batchNumber: currentItem.batchNumber!,
-      expiryDate: currentItem.expiryDate!,
-      manufacturer: isAddingNewMedicine ? newMedicineData.manufacturer : selectedMedicine!.manufacturer,
-      gstRate: currentItem.gstRate!
+  quantity: currentItem.quantity,
+  unitPrice: currentItem.unitPrice,
+  mrp: currentItem.mrp,
+  totalPrice: (currentItem.quantity || 0) * (currentItem.unitPrice || 0),
+  batchNumber: currentItem.batchNumber,
+  expiryDate: currentItem.expiryDate,
+  manufacturer: isAddingNewMedicine ? newMedicineData.manufacturer : (selectedMedicine ? selectedMedicine.manufacturer : ''),
+  gstRate: currentItem.gstRate
     };
 
     setItems([...items, newItem]);
@@ -222,7 +203,7 @@ export default function PurchaseStockPage() {
     toast.success('Item added to purchase');
   };
 
-  const removeItem = (index: number) => {
+  const removeItem = (index) => {
     const updatedItems = items.filter((_, i) => i !== index);
     setItems(updatedItems);
     toast.success('Item removed from purchase');
@@ -278,7 +259,7 @@ export default function PurchaseStockPage() {
       // Save supplier if new
       let supplierId = selectedSupplier?.id;
       if (!selectedSupplier && supplierName) {
-        const newSupplier: Supplier = {
+  const newSupplier = {
           id: `supplier_${Date.now()}`,
           name: supplierName,
           address: newSupplierData.address,
@@ -296,7 +277,7 @@ export default function PurchaseStockPage() {
       for (const item of items) {
         if (item.isNewMedicine && item.newMedicineData) {
           // Create new medicine
-          const newMedicine: Medicine = {
+          const newMedicine = {
             id: `medicine_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             name: item.newMedicineData.name,
             expiryDate: item.expiryDate,
@@ -317,7 +298,7 @@ export default function PurchaseStockPage() {
               quantity: item.quantity,
               purchasePrice: item.unitPrice,
               purchaseDate: new Date().toISOString(),
-              supplierId: supplierId!,
+              supplierId: supplierId,
               supplierName: supplierName,
               gstRate: item.gstRate
             }]
@@ -327,16 +308,16 @@ export default function PurchaseStockPage() {
           DataStore.getMedicines().push(newMedicine);
         } else {
           // Update existing medicine with new FIFO lot
-          const existingMedicine = DataStore.getMedicineById(item.medicineId!);
+          const existingMedicine = DataStore.getMedicineById(item.medicineId);
           if (existingMedicine) {
-            const newLot: MedicineLot = {
+            const newLot = {
               id: `lot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               batchNo: item.batchNumber,
               expiryDate: item.expiryDate,
               quantity: item.quantity,
               purchasePrice: item.unitPrice,
               purchaseDate: new Date().toISOString(),
-              supplierId: supplierId!,
+              supplierId: supplierId,
               supplierName: supplierName,
               gstRate: item.gstRate
             };
@@ -358,7 +339,7 @@ export default function PurchaseStockPage() {
       // Create transaction record
       const transaction = {
         id: `purchase_${Date.now()}`,
-        type: 'purchase' as const,
+  type: 'purchase',
         invoiceNumber,
         date: new Date().toISOString(),
         supplierName,
@@ -744,7 +725,7 @@ export default function PurchaseStockPage() {
 
               <div className="space-y-2">
                 <Label>Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

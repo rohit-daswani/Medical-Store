@@ -1,4 +1,4 @@
-'use client';
+
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,22 +25,22 @@ import {
   Legend,
 } from 'recharts';
 
-type TimeRange = 'day' | 'week' | 'month';
+
 
 export function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
-  const [expiringMedicines, setExpiringMedicines] = useState<ExpiringMedicine[]>([]);
-  const [lowStockMedicines, setLowStockMedicines] = useState<any[]>([]);
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>('month');
-  const [dateRange, setDateRange] = useState<string>('');
+  const [stats, setStats] = useState(null);
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [expiringMedicines, setExpiringMedicines] = useState([]);
+  const [lowStockMedicines, setLowStockMedicines] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [selectedTimeRange, setSelectedTimeRange] = useState('month');
+  const [dateRange, setDateRange] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const router = useRouter();
 
-  const processChartData = (timeRange: TimeRange) => {
+  const processChartData = (timeRange) => {
     if (timeRange === 'month') {
       // Use the new monthly revenue data for month view to show profit/loss clearly
       const monthlyData = DataStore.getMonthlyRevenueData();
@@ -67,39 +67,39 @@ export function Dashboard() {
     const salesTransactions = DataStore.getTransactions('sell');
     const purchaseTransactions = DataStore.getTransactions('purchase');
     
-    let formatKey: (dateStr: string) => string;
-    let displayFormat: (key: string) => string;
-    let getDateForRange: (key: string) => Date;
+  let formatKey;
+  let displayFormat;
+  let getDateForRange;
     
     switch (timeRange) {
       case 'day':
-        formatKey = (dateStr: string) => {
+        formatKey = (dateStr) => {
           const date = new Date(dateStr);
           return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         };
-        displayFormat = (key: string) => {
+        displayFormat = (key) => {
           const date = new Date(key);
           return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
         };
-        getDateForRange = (key: string) => new Date(key);
+        getDateForRange = (key) => new Date(key);
         break;
       case 'week':
-        formatKey = (dateStr: string) => {
+        formatKey = (dateStr) => {
           const date = new Date(dateStr);
           const startOfWeek = new Date(date);
           startOfWeek.setDate(date.getDate() - date.getDay());
           return startOfWeek.toISOString().split('T')[0];
         };
-        displayFormat = (key: string) => {
+        displayFormat = (key) => {
           const date = new Date(key);
           const weekNumber = Math.ceil(date.getDate() / 7);
           return `Week ${weekNumber} '${date.getFullYear().toString().slice(-2)}`;
         };
-        getDateForRange = (key: string) => new Date(key);
+        getDateForRange = (key) => new Date(key);
         break;
     }
 
-    const transactionsByPeriod: Record<string, { totalRevenue: number; totalSales: number; purchaseCost: number }> = {};
+  const transactionsByPeriod = {};
     
     // Process sales transactions
     salesTransactions.forEach(txn => {
@@ -139,13 +139,13 @@ export function Dashboard() {
     return chartArray;
   };
 
-  const updateDateRange = (data: any[], timeRange: TimeRange) => {
+  const updateDateRange = (data, timeRange) => {
     if (data.length === 0) return '';
     
     const firstDate = data[0].sortDate;
     const lastDate = data[data.length - 1].sortDate;
     
-    const formatDateRange = (date: Date) => {
+    const formatDateRange = (date) => {
       return date.toLocaleDateString('en-US', { 
         day: '2-digit', 
         month: '2-digit', 
@@ -187,7 +187,7 @@ export function Dashboard() {
     // }
   }, [selectedTimeRange]);
 
-  const handleTimeRangeChange = (range: TimeRange) => {
+  const handleTimeRangeChange = (range) => {
     setSelectedTimeRange(range);
   };
 
@@ -222,7 +222,7 @@ export function Dashboard() {
   };
 
   // Custom tooltip to show profit/loss clearly
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       const isProfit = data.totalRevenue >= 0;
@@ -411,7 +411,7 @@ export function Dashboard() {
 
               {/* Time Range Selector */}
               <div className="flex bg-gray-100 rounded-lg p-1">
-                {(['day', 'week', 'month'] as TimeRange[]).map((range) => (
+                {(['day', 'week', 'month']).map((range) => (
                   <button
                     key={range}
                     onClick={() => handleTimeRangeChange(range)}

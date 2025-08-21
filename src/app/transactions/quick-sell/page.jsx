@@ -1,4 +1,4 @@
-'use client';
+
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,22 +13,13 @@ import { DataStore } from '@/lib/mock-data';
 import { formatCurrency } from '@/lib/export-utils';
 import { toast } from 'sonner';
 
-interface SaleItem {
-  medicineId: string;
-  medicineName: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  batchNumber?: string;
-  expiryDate?: string;
-  isScheduleH: boolean;
-}
+
 
 export default function QuickSellPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'upi'>('cash');
-  const [items, setItems] = useState<SaleItem[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [items, setItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPrescriptionDialog, setShowPrescriptionDialog] = useState(false);
@@ -53,7 +44,7 @@ export default function QuickSellPage() {
     medicine.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const addItemDirectly = (medicine: any, quantity: number = 1) => {
+  const addItemDirectly = (medicine, quantity = 1) => {
     const inventoryItem = inventory.find(item => item.medicineId === medicine.id);
     if (!inventoryItem || inventoryItem.quantity < quantity) {
       toast.error('Insufficient stock available');
@@ -70,7 +61,7 @@ export default function QuickSellPage() {
     addItemToCart(medicine, quantity);
   };
 
-  const addItemToCart = (medicine: any, quantity: number) => {
+  const addItemToCart = (medicine, quantity) => {
     const existingItemIndex = items.findIndex(item => item.medicineId === medicine.id);
     
     if (existingItemIndex >= 0) {
@@ -81,7 +72,7 @@ export default function QuickSellPage() {
       setItems(updatedItems);
     } else {
       // Add new item
-      const newItem: SaleItem = {
+  const newItem = {
         medicineId: medicine.id,
         medicineName: medicine.name,
         quantity: quantity,
@@ -98,7 +89,7 @@ export default function QuickSellPage() {
     toast.success('Item added to sale');
   };
 
-  const handlePrescriptionUpload = (files: string[]) => {
+  const handlePrescriptionUpload = (files) => {
     if (pendingScheduleHItem) {
       toast.success('Prescription uploaded successfully. Item added to sale.');
       addItemToCart(pendingScheduleHItem.medicine, pendingScheduleHItem.quantity);
@@ -116,12 +107,12 @@ export default function QuickSellPage() {
     }
   };
 
-  const removeItem = (medicineId: string) => {
+  const removeItem = (medicineId) => {
     setItems(items.filter(item => item.medicineId !== medicineId));
     toast.success('Item removed from sale');
   };
 
-  const updateItemQuantity = (medicineId: string, newQuantity: number) => {
+  const updateItemQuantity = (medicineId, newQuantity) => {
     if (newQuantity <= 0) {
       removeItem(medicineId);
       return;
@@ -182,7 +173,7 @@ const calculateGrandTotal = () => {
       // Create transaction
       const transaction = {
         id: Date.now().toString(),
-        type: 'sell' as const,
+  type: 'sell',
         invoiceNumber,
         date: new Date().toISOString(),
         customerName: customerName || 'Walk-in Customer',
@@ -280,7 +271,7 @@ const calculateGrandTotal = () => {
               </tr>
             </thead>
             <tbody>
-              ${lastInvoiceData.items.map((item: any) => {
+              ${lastInvoiceData.items.map((item) => {
                 const medicine = medicines.find(med => med.id === item.medicineId);
                 const gstRate = medicine?.gstRate || 18;
                 return `
@@ -469,7 +460,7 @@ const calculateGrandTotal = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                <Select value={paymentMethod} onValueChange={(value) => setPaymentMethod(value)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

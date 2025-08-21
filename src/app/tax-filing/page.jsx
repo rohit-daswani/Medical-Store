@@ -39,7 +39,7 @@ export default function TaxFilingPage() {
     }
   };
 
-  const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
+  const handleDateChange = (field, value) => {
     setDateRange(prev => ({ ...prev, [field]: value }));
   };
 
